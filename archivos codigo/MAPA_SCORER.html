@@ -1,0 +1,434 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<title>Mapa main_scorer.py</title>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    font-family: 'Segoe UI', Arial, sans-serif;
+    font-size: 13px;
+    background: #f0f2f5;
+    color: #1a1a2e;
+    padding: 32px 24px;
+  }
+  h1 {
+    font-size: 22px;
+    font-weight: 700;
+    margin-bottom: 6px;
+    color: #1a1a2e;
+  }
+  h1 span { color: #3b82f6; }
+  .subtitle {
+    color: #6b7280;
+    font-size: 12px;
+    margin-bottom: 32px;
+  }
+  h2 {
+    font-size: 14px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+    color: #374151;
+    margin: 36px 0 10px 0;
+    padding-bottom: 6px;
+    border-bottom: 2px solid #d1d5db;
+  }
+  h2 .lines {
+    font-weight: 400;
+    font-size: 11px;
+    color: #9ca3af;
+    text-transform: none;
+    letter-spacing: 0;
+    margin-left: 8px;
+  }
+  table {
+    width: 100%;
+    border-collapse: collapse;
+    background: #ffffff;
+    border-radius: 8px;
+    overflow: hidden;
+    box-shadow: 0 1px 3px rgba(0,0,0,0.08);
+    margin-bottom: 8px;
+  }
+  thead tr { background: #1e3a5f; }
+  thead th {
+    color: #ffffff;
+    font-weight: 600;
+    font-size: 11px;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    padding: 10px 14px;
+    text-align: left;
+    white-space: nowrap;
+  }
+  tbody tr { border-bottom: 1px solid #e5e7eb; }
+  tbody tr:last-child { border-bottom: none; }
+  tbody tr:hover { background: #f8fafc; }
+  td {
+    padding: 8px 14px;
+    vertical-align: middle;
+    line-height: 1.4;
+  }
+  /* Column widths via nth-child on main structure table */
+  .tbl-global td:nth-child(1) { width: 30px;  color: #9ca3af; font-weight: 700; }
+  .tbl-global td:nth-child(2) { width: 220px; font-weight: 600; }
+  .tbl-global td:nth-child(3) { width: 100px; }
+  .tbl-global td:nth-child(4) { }
+
+  .lines-badge {
+    display: inline-block;
+    background: #e5e7eb;
+    color: #374151;
+    font-size: 10px;
+    font-family: 'Cascadia Code', 'Consolas', monospace;
+    padding: 2px 7px;
+    border-radius: 4px;
+    white-space: nowrap;
+  }
+  .tag {
+    display: inline-block;
+    font-size: 10px;
+    font-family: 'Cascadia Code', 'Consolas', monospace;
+    padding: 2px 7px;
+    border-radius: 4px;
+    white-space: nowrap;
+    font-weight: 600;
+  }
+  .tag-detail { background: #dbeafe; color: #1d4ed8; }
+  .tag-go     { background: #d1fae5; color: #065f46; }
+  .tag-warn   { background: #fef3c7; color: #92400e; }
+  .tag-neg    { background: #fee2e2; color: #991b1b; }
+  .tag-gray   { background: #f3f4f6; color: #374151; }
+
+  code {
+    font-family: 'Cascadia Code', 'Consolas', monospace;
+    font-size: 11px;
+    background: #f3f4f6;
+    padding: 1px 5px;
+    border-radius: 3px;
+    color: #1d4ed8;
+  }
+
+  .formula-box {
+    background: #1e3a5f;
+    color: #e0f2fe;
+    font-family: 'Cascadia Code', 'Consolas', monospace;
+    font-size: 12px;
+    padding: 14px 18px;
+    border-radius: 8px;
+    margin: 10px 0;
+    line-height: 1.8;
+    white-space: pre;
+  }
+
+  .alert-box {
+    background: #fff7ed;
+    border-left: 4px solid #f97316;
+    padding: 12px 16px;
+    border-radius: 0 8px 8px 0;
+    margin: 10px 0;
+    font-size: 13px;
+  }
+  .alert-box strong { color: #c2410c; }
+
+  .two-col {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 16px;
+    margin-bottom: 8px;
+  }
+
+  /* weight color scale */
+  .w-high   { color: #dc2626; font-weight: 700; }
+  .w-mid    { color: #d97706; font-weight: 600; }
+  .w-low    { color: #059669; font-weight: 600; }
+  .w-neg    { color: #7c3aed; font-weight: 700; }
+
+  .section-note {
+    font-size: 11px;
+    color: #6b7280;
+    margin-bottom: 8px;
+    font-style: italic;
+  }
+</style>
+</head>
+<body>
+
+<h1>🗺️ Mapa de <span>main_scorer.py</span></h1>
+<p class="subtitle">Referencia rápida para pedir modificaciones — última revisión 2026-05-14</p>
+
+<!-- ═══════════════════════════════════════════════════════════ -->
+<h2>Estructura global</h2>
+
+<table class="tbl-global">
+  <thead>
+    <tr>
+      <th>#</th>
+      <th>Sección</th>
+      <th>Líneas</th>
+      <th>Para modificar…</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr><td>0</td><td>PATHS Y CONFIGURACIÓN</td><td><span class="lines-badge">34–44</span></td><td>Rutas de archivos: state.json, logs, .env</td></tr>
+    <tr><td>1</td><td>LOGGING</td><td><span class="lines-badge">46–61</span></td><td>Formato de logs, retención (7 días)</td></tr>
+    <tr><td>2</td><td>CREDENCIALES</td><td><span class="lines-badge">63–100</span></td><td>Variables SMTP, ACLED, User-Agent header</td></tr>
+    <tr><td>3</td><td>ESTADO PERSISTENTE</td><td><span class="lines-badge">103–162</span></td><td>Deduplicación por URL, salud de fuentes</td></tr>
+    <tr><td>4</td><td>UTILIDADES DE TEXTO</td><td><span class="lines-badge">164–179</span></td><td>Normalización, umbral de similitud de títulos</td></tr>
+    <tr><td>5</td><td>DICCIONARIO BASE</td><td><span class="lines-badge">181–385</span></td><td>Anclas, pesos GEO, multiplicadores de categoría, negaciones</td></tr>
+    <tr><td>6</td><td>KEYWORD ENTRIES</td><td><span class="lines-badge">387–685</span></td><td>~280 términos EN/FR/PT/ES/SW con pesos y geo-boost</td></tr>
+    <tr><td>7</td><td>FUENTES RSS</td><td><span class="lines-badge">687–760</span></td><td>URLs, credibilidad, full_text, rate limit de cada fuente</td></tr>
+    <tr><td>8</td><td>FETCHING</td><td><span class="lines-badge">762–922</span></td><td>Cómo se descarga RSS, scraping de puertos y ACLED</td></tr>
+    <tr><td>9</td><td>DEDUPLICACIÓN</td><td><span class="lines-badge">923–939</span></td><td>Umbral de similitud de títulos (actualmente 0.85)</td></tr>
+    <tr><td>10</td><td>SCORING CORE</td><td><span class="lines-badge">940–1209</span></td><td>Toda la lógica de puntuación: filtros, fórmulas, umbrales</td></tr>
+    <tr><td>11</td><td>ASSET SELECTION</td><td><span class="lines-badge">1210–1276</span></td><td>Qué tickers aparecen en el email según el evento</td></tr>
+    <tr><td>12</td><td>EMAIL HTML</td><td><span class="lines-badge">1277–1559</span></td><td>Plantilla visual del email de alerta</td></tr>
+    <tr><td>13</td><td>MAIN LOOP</td><td><span class="lines-badge">1560–1657</span></td><td>Orquestación de fases, early-exit NARANJA</td></tr>
+  </tbody>
+</table>
+
+
+<!-- ═══════════════════════════════════════════════════════════ -->
+<h2>Sección 5 — Diccionario base <span class="lines">líneas 181–385</span></h2>
+
+<table>
+  <thead>
+    <tr>
+      <th style="width:200px">Sub-bloque</th>
+      <th style="width:90px">Líneas</th>
+      <th>Para modificar…</th>
+      <th style="width:280px">Ejemplo de valores</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr><td><code>ANCHOR_TERMS</code></td><td><span class="lines-badge">184–205</span></td><td>Añadir/quitar términos ancla EN/FR/PT/ES</td><td><code>"cobalt hydroxide"</code>, <code>"minerai de cobalt"</code></td></tr>
+    <tr><td><code>GEOGRAPHIC_TERMS</code></td><td><span class="lines-badge">208–292</span></td><td>Añadir zonas, minas o ciudades a un GEO code</td><td>GEO-01 = DRC · GEO-07 = China · GEO-08 = Puertos</td></tr>
+    <tr><td><code>GEO_WEIGHTS</code></td><td><span class="lines-badge">294–298</span></td><td>Cambiar el peso numérico de una zona geográfica</td><td>GEO-01 = <span class="w-high">1.80</span> · GEO-09 = <span class="w-low">0.40</span></td></tr>
+    <tr><td><code>CATEGORY_MULTIPLIERS</code></td><td><span class="lines-badge">300–321</span></td><td>Cambiar la importancia de una categoría de evento</td><td>REG-EXPORT-BAN = <span class="w-high">2.3</span> · GEO-ELECTION = <span class="w-low">0.8</span></td></tr>
+    <tr><td><code>SSC_CATEGORY_WEIGHTS</code></td><td><span class="lines-badge">324–339</span></td><td>Qué categorías afectan al SSC y con qué peso</td><td>DEM-SUBSTITUTE = <span class="w-low">0.0</span> · LAB-STRIKE-THR = <span class="w-mid">0.6</span></td></tr>
+    <tr><td><code>SMC_CATEGORY_OVERRIDES</code></td><td><span class="lines-badge">342–351</span></td><td>Override de categorías en SMC</td><td>REG-* = <span class="w-mid">1.2</span> · RES-RESOLVE = <span class="w-low">0.5</span></td></tr>
+    <tr><td><code>NEGATION_TERMS</code></td><td><span class="lines-badge">353–365</span></td><td>Añadir palabras negadoras por idioma (reducen score ×0.15)</td><td><code>"resolved"</code>, <code>"lifted"</code>, <code>"resolu"</code></td></tr>
+    <tr><td><code>COUP_CONTEXT_TERMS</code></td><td><span class="lines-badge">369–372</span></td><td>Términos requeridos cerca de "coup" (±40 palabras)</td><td><code>"military"</code>, <code>"junta"</code>, <code>"katanga"</code></td></tr>
+    <tr><td><code>FALSE_POSITIVE_FILTERS</code></td><td><span class="lines-badge">374–385</span></td><td>Patrones que anulan un hit por categoría</td><td><code>"bowling strike"</code> cancela LAB-STRIKE-ACT</td></tr>
+  </tbody>
+</table>
+
+<div class="two-col">
+  <div>
+    <p class="section-note">Pesos GEO — de mayor a menor impacto</p>
+    <table>
+      <thead><tr><th>Código</th><th>Zona</th><th>Peso</th></tr></thead>
+      <tbody>
+        <tr><td>GEO-01</td><td>DRC Copperbelt</td><td><span class="w-high">1.80</span></td></tr>
+        <tr><td>GEO-07</td><td>China refinación</td><td><span class="w-high">1.60</span></td></tr>
+        <tr><td>GEO-08</td><td>Puertos africanos</td><td><span class="w-mid">1.50</span></td></tr>
+        <tr><td>GEO-03</td><td>Corredor Este (Tanzania/Moz.)</td><td><span class="w-mid">1.40</span></td></tr>
+        <tr><td>GEO-04</td><td>Corredor Sur (SA/Zimbabwe)</td><td><span class="w-mid">1.30</span></td></tr>
+        <tr><td>GEO-02</td><td>Zambia</td><td><span class="w-mid">1.20</span></td></tr>
+        <tr><td>GEO-05</td><td>Australia</td><td><span class="w-low">0.90</span></td></tr>
+        <tr><td>GEO-06</td><td>Filipinas</td><td><span class="w-low">0.80</span></td></tr>
+        <tr><td>GEO-09</td><td>Latinoamérica</td><td><span class="w-low">0.40</span></td></tr>
+      </tbody>
+    </table>
+  </div>
+  <div>
+    <p class="section-note">Multiplicadores de categoría — de mayor a menor</p>
+    <table>
+      <thead><tr><th>Categoría</th><th>Mult.</th><th>Categoría</th><th>Mult.</th></tr></thead>
+      <tbody>
+        <tr><td>REG-EXPORT-BAN</td><td><span class="w-high">2.3</span></td><td>LOG-PORT</td><td><span class="w-high">2.0</span></td></tr>
+        <tr><td>GEO-CONFLICT</td><td><span class="w-high">2.2</span></td><td>LAB-STRIKE-ACT</td><td><span class="w-high">2.1</span></td></tr>
+        <tr><td>GEO-COUP</td><td><span class="w-high">2.0</span></td><td>REG-LICENSE</td><td><span class="w-mid">1.9</span></td></tr>
+        <tr><td>GEO-SANCTION</td><td><span class="w-mid">1.9</span></td><td>REG-NATIONAL</td><td><span class="w-mid">1.8</span></td></tr>
+        <tr><td>LOG-RAIL</td><td><span class="w-mid">1.8</span></td><td>LAB-ACCIDENT</td><td><span class="w-mid">1.8</span></td></tr>
+        <tr><td>REG-ENV</td><td><span class="w-mid">1.7</span></td><td>LOG-CUSTOMS</td><td><span class="w-mid">1.7</span></td></tr>
+        <tr><td>FMA-FLOOD</td><td><span class="w-mid">1.7</span></td><td>REG-TAX</td><td><span class="w-mid">1.6</span></td></tr>
+        <tr><td>LOG-ROAD</td><td><span class="w-mid">1.5</span></td><td>LAB-STRIKE-THR</td><td><span class="w-mid">1.5</span></td></tr>
+        <tr><td>DEM-SUBSTITUTE</td><td><span class="w-neg">−1.5</span></td><td>DEM-DROP</td><td><span class="w-neg">−1.3</span></td></tr>
+      </tbody>
+    </table>
+  </div>
+</div>
+
+
+<!-- ═══════════════════════════════════════════════════════════ -->
+<h2>Sección 6 — Keyword entries <span class="lines">líneas 387–685</span></h2>
+
+<p class="section-note">Formato de cada entrada: ("término", "CATEGORÍA", peso, requires_context, ventana_palabras, [GEO-boost])</p>
+
+<table>
+  <thead>
+    <tr>
+      <th style="width:180px">Sub-bloque</th>
+      <th style="width:90px">Líneas</th>
+      <th style="width:160px">Categoría</th>
+      <th style="width:110px">Idiomas</th>
+      <th>Notas clave</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr><td>Puertos</td><td><span class="lines-badge">393–411</span></td><td><code>LOG-PORT</code></td><td>EN FR PT ES</td><td>GEO-boost: GEO-08 · peso hasta 4.5</td></tr>
+    <tr><td>Ferrocarril</td><td><span class="lines-badge">413–425</span></td><td><code>LOG-RAIL</code></td><td>EN FR PT ES</td><td>GEO-boost: GEO-03/04 · sabotaje = 4.5</td></tr>
+    <tr><td>Carretera</td><td><span class="lines-badge">427–439</span></td><td><code>LOG-ROAD</code></td><td>EN FR PT ES</td><td>Incluye <code>kasumbalesa</code> (l.431) = 4.0</td></tr>
+    <tr><td>Aduanas</td><td><span class="lines-badge">441–450</span></td><td><code>LOG-CUSTOMS</code></td><td>EN FR PT ES</td><td>Todos con <code>requires_context: True</code></td></tr>
+    <tr><td>Buques</td><td><span class="lines-badge">452–456</span></td><td><code>LOG-VESSEL</code></td><td>EN</td><td>Sin geo-boost · peso bajo (2.8–3.2)</td></tr>
+    <tr><td>Conflicto armado</td><td><span class="lines-badge">458–473</span></td><td><code>GEO-CONFLICT</code></td><td>EN FR ES PT</td><td>GEO-boost: GEO-01/02 · <code>mine attack</code> = 5.0</td></tr>
+    <tr><td>Golpe de estado</td><td><span class="lines-badge">475–485</span></td><td><code>GEO-COUP</code></td><td>EN FR ES</td><td>Validado por <code>COUP_CONTEXT_TERMS</code> (±40 pal.)</td></tr>
+    <tr><td>Sanciones</td><td><span class="lines-badge">487–494</span></td><td><code>GEO-SANCTION</code></td><td>EN FR ES PT</td><td>⚠️ No decaen por edad nunca</td></tr>
+    <tr><td>Protestas</td><td><span class="lines-badge">496–503</span></td><td><code>GEO-PROTEST</code></td><td>EN FR ES PT</td><td>Todos con <code>requires_context: True</code> · peso bajo</td></tr>
+    <tr><td>Huelga activa</td><td><span class="lines-badge">505–521</span></td><td><code>LAB-STRIKE-ACT</code></td><td>EN FR PT ES</td><td>GEO-boost: GEO-01/02/08 · <code>mining strike</code> = 4.8</td></tr>
+    <tr><td>Amenaza de huelga</td><td><span class="lines-badge">523–530</span></td><td><code>LAB-STRIKE-THR</code></td><td>EN FR PT ES</td><td>SSC weight = 0.6 (menor urgencia)</td></tr>
+    <tr><td>Kiswahili</td><td><span class="lines-badge">532–536</span></td><td><code>LAB-STRIKE-ACT / LOG-PORT</code></td><td>SW</td><td>DRC oriental + Tanzania</td></tr>
+    <tr><td>Accidentes mineros</td><td><span class="lines-badge">538–548</span></td><td><code>LAB-ACCIDENT</code></td><td>EN FR PT ES</td><td>GEO-boost: GEO-01/02 · <code>mine collapse</code> = 5.0</td></tr>
+    <tr><td>Minería artesanal (ASM)</td><td><span class="lines-badge">550–558</span></td><td><code>LAB-ACCIDENT / REG-LICENSE</code></td><td>EN FR ES</td><td>Solo GEO-01 · bans y suspensiones</td></tr>
+    <tr><td>Ban de exportación</td><td><span class="lines-badge">560–569</span></td><td><code>REG-EXPORT-BAN</code></td><td>EN FR PT ES</td><td>Peso máximo del sistema (5.0) · no decae</td></tr>
+    <tr><td>Impuestos mineros</td><td><span class="lines-badge">571–578</span></td><td><code>REG-TAX</code></td><td>EN FR PT ES</td><td>⚠️ No decaen por edad</td></tr>
+    <tr><td>Licencias mineras</td><td><span class="lines-badge">580–586</span></td><td><code>REG-LICENSE</code></td><td>EN FR PT ES</td><td>⚠️ No decaen por edad</td></tr>
+    <tr><td>Nacionalización</td><td><span class="lines-badge">588–592</span></td><td><code>REG-NATIONAL</code></td><td>EN FR PT ES</td><td>⚠️ No decaen por edad · peso 4.8</td></tr>
+    <tr><td>Inundaciones/ciclones</td><td><span class="lines-badge">594–601</span></td><td><code>FMA-FLOOD</code></td><td>EN FR PT ES</td><td>Ciclones solo GEO-03/04</td></tr>
+    <tr><td>Cortes eléctricos</td><td><span class="lines-badge">603–610</span></td><td><code>FMA-DROUGHT</code></td><td>EN FR ES</td><td><code>inga dam</code> (l.607) = 4.5 · solo GEO-01</td></tr>
+    <tr><td>Sustitutos del cobalto</td><td><span class="lines-badge">612–624</span></td><td><code>DEM-SUBSTITUTE</code></td><td>EN FR ES PT</td><td>⚠️ Pesos NEGATIVOS · solo afecta SMC, no SSC</td></tr>
+    <tr><td>Demanda/mercado</td><td><span class="lines-badge">626–638</span></td><td><code>DEM-SURGE</code></td><td>EN FR ES</td><td>Sin geo-boost · señales de tensión en oferta</td></tr>
+    <tr><td>Resoluciones</td><td><span class="lines-badge">641–658</span></td><td><code>RES-RESOLVE</code></td><td>EN FR ES PT</td><td>⚠️ Pesos NEGATIVOS · reduce el score activo</td></tr>
+    <tr><td>Credibilidad fuentes</td><td><span class="lines-badge">661–685</span></td><td><code>SOURCE_CREDIBILITY</code></td><td>—</td><td>Reuters/ACLED = 1.00 · Google News = 0.50</td></tr>
+  </tbody>
+</table>
+
+
+<!-- ═══════════════════════════════════════════════════════════ -->
+<h2>Sección 7 — Fuentes RSS <span class="lines">líneas 687–760</span></h2>
+
+<p class="section-note">Campos por fuente: name · url · lang · full_text · rate_limit (seg) · timeout (seg)</p>
+
+<table>
+  <thead>
+    <tr>
+      <th style="width:80px">Grupo</th>
+      <th style="width:190px">Nombre clave</th>
+      <th style="width:60px">Línea</th>
+      <th style="width:50px">Lang</th>
+      <th style="width:80px">full_text</th>
+      <th style="width:90px">Credibilidad</th>
+      <th>Nota</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr><td><span class="tag tag-go">Tier 1</span></td><td><code>reuters_africa</code></td><td><span class="lines-badge">693</span></td><td>EN</td><td>✅ Sí</td><td><span class="w-high">1.00</span></td><td>Northern Miner feed (URL actual)</td></tr>
+    <tr><td><span class="tag tag-go">Tier 1</span></td><td><code>reuters_commodities</code></td><td><span class="lines-badge">696</span></td><td>EN</td><td>✅ Sí</td><td><span class="w-high">1.00</span></td><td>Africanews feed (URL actual)</td></tr>
+    <tr><td><span class="tag tag-go">Tier 1</span></td><td><code>reuters_china</code></td><td><span class="lines-badge">699</span></td><td>EN</td><td>✅ Sí</td><td><span class="w-high">1.00</span></td><td>RFI English feed (URL actual)</td></tr>
+    <tr><td><span class="tag tag-go">Mining</span></td><td><code>mining_com_cobalt</code></td><td><span class="lines-badge">703</span></td><td>EN</td><td>❌ No</td><td><span class="w-high">1.00</span></td><td>Tag cobalt de Mining.com</td></tr>
+    <tr><td><span class="tag tag-go">Mining</span></td><td><code>kitco</code></td><td><span class="lines-badge">706</span></td><td>EN</td><td>❌ No</td><td><span class="w-mid">0.85</span></td><td>IM-Mining feed (URL actual)</td></tr>
+    <tr><td><span class="tag tag-warn">África</span></td><td><code>allafrica</code></td><td><span class="lines-badge">710</span></td><td>EN</td><td>✅ Sí</td><td><span class="w-mid">0.85</span></td><td>Rate limit: 45 s</td></tr>
+    <tr><td><span class="tag tag-warn">África</span></td><td><code>bbc_africa</code></td><td><span class="lines-badge">713</span></td><td>EN</td><td>❌ No</td><td><span class="w-low">0.90</span></td><td>Rate limit: 60 s</td></tr>
+    <tr><td><span class="tag tag-warn">África</span></td><td><code>miningmx</code></td><td><span class="lines-badge">716</span></td><td>EN</td><td>❌ No</td><td><span class="w-low">0.90</span></td><td>Rate limit: 60 s</td></tr>
+    <tr><td><span class="tag tag-warn">África FR</span></td><td><code>rfi_afrique</code></td><td><span class="lines-badge">719</span></td><td>FR</td><td>✅ Sí</td><td><span class="w-mid">0.80</span></td><td>Francés · Rate limit: 45 s</td></tr>
+    <tr><td><span class="tag tag-warn">África</span></td><td><code>club_mozambique</code></td><td><span class="lines-badge">722</span></td><td>EN</td><td>❌ No</td><td><span class="w-mid">0.80</span></td><td>Rate limit: 90 s</td></tr>
+    <tr><td><span class="tag tag-warn">África</span></td><td><code>lusaka_times</code></td><td><span class="lines-badge">725</span></td><td>EN</td><td>❌ No</td><td><span class="w-low">0.75</span></td><td>Rate limit: 90 s</td></tr>
+    <tr><td><span class="tag tag-detail">Conflicto</span></td><td><code>reliefweb_drc</code></td><td><span class="lines-badge">729</span></td><td>EN</td><td>❌ No</td><td><span class="w-low">0.90</span></td><td>Solo DRC · Rate limit: 120 s</td></tr>
+    <tr><td><span class="tag tag-detail">Desastres</span></td><td><code>gdacs</code></td><td><span class="lines-badge">732</span></td><td>EN</td><td>❌ No</td><td><span class="w-high">1.00</span></td><td>Desastres naturales globales</td></tr>
+    <tr><td><span class="tag tag-gray">G. News</span></td><td><code>gnews_cobalt_en</code></td><td><span class="lines-badge">736</span></td><td>EN</td><td>❌ No</td><td><span class="w-neg">0.50</span></td><td>Rate limit: 300 s</td></tr>
+    <tr><td><span class="tag tag-gray">G. News</span></td><td><code>gnews_cobalt_fr</code></td><td><span class="lines-badge">739</span></td><td>FR</td><td>❌ No</td><td><span class="w-neg">0.50</span></td><td>Búsqueda en francés</td></tr>
+    <tr><td><span class="tag tag-gray">G. News</span></td><td><code>gnews_drc</code></td><td><span class="lines-badge">742</span></td><td>EN</td><td>❌ No</td><td><span class="w-neg">0.50</span></td><td>DRC + cobalt + mine</td></tr>
+    <tr><td><span class="tag tag-gray">G. News</span></td><td><code>gnews_durban</code></td><td><span class="lines-badge">745</span></td><td>EN</td><td>❌ No</td><td><span class="w-neg">0.50</span></td><td>Durban port strike disruption</td></tr>
+  </tbody>
+</table>
+
+<p class="section-note" style="margin-top:8px">Portales de puertos (scraping, no RSS) — líneas 750–760</p>
+<table>
+  <thead>
+    <tr>
+      <th style="width:190px">Nombre clave</th>
+      <th style="width:60px">Línea</th>
+      <th style="width:50px">Lang</th>
+      <th style="width:90px">Credibilidad</th>
+      <th style="width:80px">Timeout</th>
+      <th>Puerto</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr><td><code>transnet_durban</code></td><td><span class="lines-badge">751</span></td><td>EN</td><td><span class="w-high">1.00</span></td><td>20 s</td><td>Durban — Sudáfrica</td></tr>
+    <tr><td><code>tpa_tanzania</code></td><td><span class="lines-badge">754</span></td><td>EN</td><td><span class="w-high">1.00</span></td><td>20 s</td><td>Dar es Salaam — Tanzania</td></tr>
+    <tr><td><code>cfm_mozambique</code></td><td><span class="lines-badge">757</span></td><td>PT</td><td><span class="w-high">1.00</span></td><td>20 s</td><td>Beira/Nacala — Mozambique</td></tr>
+  </tbody>
+</table>
+
+<div class="alert-box">
+  <strong>ACLED</strong> no está en estas listas. Se activa vía <code>.env</code> (<code>ACLED_KEY</code> + <code>ACLED_EMAIL</code>) y se llama en <code>fetch_acled()</code> — línea <strong>872</strong>.
+</div>
+
+
+<!-- ═══════════════════════════════════════════════════════════ -->
+<h2>Sección 10 — Scoring core <span class="lines">líneas 940–1209</span></h2>
+
+<table>
+  <thead>
+    <tr>
+      <th style="width:190px">Función</th>
+      <th style="width:90px">Líneas</th>
+      <th>Para modificar…</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr><td><code>tokenize()</code></td><td><span class="lines-badge">944–946</span></td><td>Cómo se parten las palabras del texto</td></tr>
+    <tr><td><code>has_anchor()</code></td><td><span class="lines-badge">948–953</span></td><td>Lógica de detección de término ancla</td></tr>
+    <tr><td><code>has_coup_context()</code></td><td><span class="lines-badge">955–961</span></td><td>Ventana de contexto para "coup" (actualmente ±40 palabras)</td></tr>
+    <tr><td><code>has_negation_near()</code></td><td><span class="lines-badge">963–972</span></td><td>Ventana de negación (actualmente ±5 palabras)</td></tr>
+    <tr><td><code>check_false_positive()</code></td><td><span class="lines-badge">974–980</span></td><td>Lógica de descarte por falso positivo</td></tr>
+    <tr><td><code>detect_geo()</code></td><td><span class="lines-badge">982–991</span></td><td>Cómo se detectan los GEO codes en el texto</td></tr>
+    <tr><td><code>age_factor()</code></td><td><span class="lines-badge">993–1009</span></td><td>Decaimiento temporal por edad del artículo — ver tabla abajo</td></tr>
+    <tr><td><strong><code>score_article()</code></strong></td><td><span class="lines-badge">1011–1116</span></td><td>⚠️ Función central: itera todas las keywords y aplica todos los filtros</td></tr>
+    <tr><td><code>calc_ssc()</code></td><td><span class="lines-badge">1118–1121</span></td><td>Aplica <code>SSC_CATEGORY_WEIGHTS</code> al score bruto</td></tr>
+    <tr><td><code>calc_smc()</code></td><td><span class="lines-badge">1123–1126</span></td><td>Aplica <code>SMC_CATEGORY_OVERRIDES</code> al score bruto</td></tr>
+    <tr><td><code>aggregate_scores()</code></td><td><span class="lines-badge">1128–1185</span></td><td>Agrupa en eventos, aplica bonus ×1.30 de confirmación, suma con fórmula</td></tr>
+    <tr><td><code>level_ssc()</code></td><td><span class="lines-badge">1187–1195</span></td><td>Umbrales VERDE/AMARILLO/NARANJA/ROJO para SSC</td></tr>
+    <tr><td><code>level_smc()</code></td><td><span class="lines-badge">1197–1204</span></td><td>Umbrales VERDE/AMARILLO/NARANJA/ROJO para SMC</td></tr>
+    <tr><td><code>should_alert()</code></td><td><span class="lines-badge">1206–1208</span></td><td>Condición de disparo: SSC≥31 OR SMC≥41 OR (SSC≥20 AND SMC≥30)</td></tr>
+  </tbody>
+</table>
+
+<div class="two-col" style="margin-top:16px">
+  <div>
+    <p class="section-note">Decaimiento por edad — age_factor() l.993</p>
+    <table>
+      <thead><tr><th>Edad</th><th>Categorías</th><th>Factor</th></tr></thead>
+      <tbody>
+        <tr><td>≤ 72 horas</td><td>Todas</td><td><span class="w-high">1.0</span> (sin decay)</td></tr>
+        <tr><td>> 72 horas</td><td>LOG-* y LAB-*</td><td><span class="w-neg">0.30</span></td></tr>
+        <tr><td>> 72 horas</td><td>Resto</td><td><span class="w-mid">0.60</span></td></tr>
+        <tr><td>> 7 días</td><td>Todas</td><td><span class="w-neg">0.10</span></td></tr>
+        <tr><td>Cualquier edad</td><td>REG-* y GEO-SANCTION</td><td><span class="w-high">1.0</span> (nunca decaen)</td></tr>
+      </tbody>
+    </table>
+  </div>
+  <div>
+    <p class="section-note">Umbrales de nivel SSC y SMC</p>
+    <table>
+      <thead><tr><th>Nivel</th><th>SSC</th><th>SMC</th></tr></thead>
+      <tbody>
+        <tr><td>🟢 VERDE</td><td>&lt; 16</td><td>&lt; 21</td></tr>
+        <tr><td>🟡 AMARILLO</td><td>16 – 30</td><td>21 – 40</td></tr>
+        <tr><td>🟠 NARANJA</td><td>31 – 50</td><td>41 – 65</td></tr>
+        <tr><td>🔴 ROJO</td><td>&gt; 50</td><td>&gt; 65</td></tr>
+      </tbody>
+    </table>
+  </div>
+</div>
+
+<p class="section-note" style="margin-top:16px">Fórmulas principales</p>
+<div class="formula-box">score_bruto  =  |peso_keyword|  ×  geo_weight  ×  cat_multiplicador  ×  credibilidad_fuente
+             ×  age_factor  ×  [× 0.15 si hay negación]  ×  [× 0.40 si geo genérico]
+
+             Descartado si score_bruto &lt; 3.0
+
+total SSC/SMC  =  score[0]  +  Σ( score[i] × 0.5 )   ← i > 0, ordenados de mayor a menor
+
+Bonus confirmación:  × 1.30  si ≥ 3 fuentes con credibilidad ≥ 0.80 reportan el mismo evento</div>
+
+<div class="alert-box">
+  <strong>Alerta dispara cuando:</strong> &nbsp;
+  SSC ≥ 31 &nbsp;<strong>OR</strong>&nbsp; SMC ≥ 41 &nbsp;<strong>OR</strong>&nbsp; (SSC ≥ 20 <strong>AND</strong> SMC ≥ 30)
+</div>
+
+</body>
+</html>

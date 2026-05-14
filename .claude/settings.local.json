@@ -1,0 +1,8 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(curl *)",
+      "Bash(python -c \"import ast; ast.parse\\(open\\('main_scorer.py'\\).read\\(\\)\\); print\\('Syntax OK'\\)\")"
+    ]
+  }
+}
