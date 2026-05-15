@@ -203,8 +203,8 @@
   </thead>
   <tbody>
     <tr><td><code>ANCHOR_TERMS</code></td><td><span class="lines-badge">184–205</span></td><td>Añadir/quitar términos ancla EN/FR/PT/ES</td><td><code>"cobalt hydroxide"</code>, <code>"minerai de cobalt"</code></td></tr>
-    <tr><td><code>GEOGRAPHIC_TERMS</code></td><td><span class="lines-badge">208–292</span></td><td>Añadir zonas, minas o ciudades a un GEO code</td><td>GEO-01 = DRC · GEO-07 = China · GEO-08 = Puertos</td></tr>
-    <tr><td><code>GEO_WEIGHTS</code></td><td><span class="lines-badge">294–298</span></td><td>Cambiar el peso numérico de una zona geográfica</td><td>GEO-01 = <span class="w-high">1.80</span> · GEO-09 = <span class="w-low">0.40</span></td></tr>
+    <tr><td><code>GEOGRAPHIC_TERMS</code></td><td><span class="lines-badge">208–303</span></td><td>Añadir zonas, minas o ciudades a un GEO code</td><td>GEO-01 = DRC · GEO-07 = China · GEO-10 = Indonesia · GEO-11 = Refino EU</td></tr>
+    <tr><td><code>GEO_WEIGHTS</code></td><td><span class="lines-badge">305–311</span></td><td>Cambiar el peso numérico de una zona geográfica</td><td>GEO-01 = <span class="w-high">1.80</span> · GEO-11 = <span class="w-low">0.80</span></td></tr>
     <tr><td><code>CATEGORY_MULTIPLIERS</code></td><td><span class="lines-badge">300–321</span></td><td>Cambiar la importancia de una categoría de evento</td><td>REG-EXPORT-BAN = <span class="w-high">2.3</span> · GEO-ELECTION = <span class="w-low">0.8</span></td></tr>
     <tr><td><code>SSC_CATEGORY_WEIGHTS</code></td><td><span class="lines-badge">324–339</span></td><td>Qué categorías afectan al SSC y con qué peso</td><td>DEM-SUBSTITUTE = <span class="w-low">0.0</span> · LAB-STRIKE-THR = <span class="w-mid">0.6</span></td></tr>
     <tr><td><code>SMC_CATEGORY_OVERRIDES</code></td><td><span class="lines-badge">342–351</span></td><td>Override de categorías en SMC</td><td>REG-* = <span class="w-mid">1.2</span> · RES-RESOLVE = <span class="w-low">0.5</span></td></tr>
@@ -223,12 +223,14 @@
         <tr><td>GEO-01</td><td>DRC Copperbelt</td><td><span class="w-high">1.80</span></td></tr>
         <tr><td>GEO-07</td><td>China refinación</td><td><span class="w-high">1.60</span></td></tr>
         <tr><td>GEO-08</td><td>Puertos africanos</td><td><span class="w-mid">1.50</span></td></tr>
-        <tr><td>GEO-03</td><td>Corredor Este (Tanzania/Moz.)</td><td><span class="w-mid">1.40</span></td></tr>
+        <tr><td>GEO-03A</td><td>Corredor Este (Tanzania + Kenya)</td><td><span class="w-mid">1.40</span></td></tr>
+        <tr><td>GEO-03B</td><td>Corredor Sureste (Mozambique)</td><td><span class="w-mid">1.40</span></td></tr>
         <tr><td>GEO-04</td><td>Corredor Sur (SA/Zimbabwe)</td><td><span class="w-mid">1.30</span></td></tr>
         <tr><td>GEO-02</td><td>Zambia</td><td><span class="w-mid">1.20</span></td></tr>
+        <tr><td>GEO-10</td><td>Indonesia (Sulawesi)</td><td><span class="w-mid">1.10</span></td></tr>
         <tr><td>GEO-05</td><td>Australia</td><td><span class="w-low">0.90</span></td></tr>
         <tr><td>GEO-06</td><td>Filipinas</td><td><span class="w-low">0.80</span></td></tr>
-        <tr><td>GEO-09</td><td>Latinoamérica</td><td><span class="w-low">0.40</span></td></tr>
+        <tr><td>GEO-11</td><td>Refino europeo (BE/FI/NO)</td><td><span class="w-low">0.80</span></td></tr>
       </tbody>
     </table>
   </div>
@@ -269,7 +271,7 @@
   </thead>
   <tbody>
     <tr><td>Puertos</td><td><span class="lines-badge">393–411</span></td><td><code>LOG-PORT</code></td><td>EN FR PT ES</td><td>GEO-boost: GEO-08 · peso hasta 4.5</td></tr>
-    <tr><td>Ferrocarril</td><td><span class="lines-badge">413–425</span></td><td><code>LOG-RAIL</code></td><td>EN FR PT ES</td><td>GEO-boost: GEO-03/04 · sabotaje = 4.5</td></tr>
+    <tr><td>Ferrocarril</td><td><span class="lines-badge">413–425</span></td><td><code>LOG-RAIL</code></td><td>EN FR PT ES</td><td>GEO-boost: GEO-03A/03B/04 · sabotaje = 4.5</td></tr>
     <tr><td>Carretera</td><td><span class="lines-badge">427–439</span></td><td><code>LOG-ROAD</code></td><td>EN FR PT ES</td><td>Incluye <code>kasumbalesa</code> (l.431) = 4.0</td></tr>
     <tr><td>Aduanas</td><td><span class="lines-badge">441–450</span></td><td><code>LOG-CUSTOMS</code></td><td>EN FR PT ES</td><td>Todos con <code>requires_context: True</code></td></tr>
     <tr><td>Buques</td><td><span class="lines-badge">452–456</span></td><td><code>LOG-VESSEL</code></td><td>EN</td><td>Sin geo-boost · peso bajo (2.8–3.2)</td></tr>
@@ -286,7 +288,7 @@
     <tr><td>Impuestos mineros</td><td><span class="lines-badge">571–578</span></td><td><code>REG-TAX</code></td><td>EN FR PT ES</td><td>⚠️ No decaen por edad</td></tr>
     <tr><td>Licencias mineras</td><td><span class="lines-badge">580–586</span></td><td><code>REG-LICENSE</code></td><td>EN FR PT ES</td><td>⚠️ No decaen por edad</td></tr>
     <tr><td>Nacionalización</td><td><span class="lines-badge">588–592</span></td><td><code>REG-NATIONAL</code></td><td>EN FR PT ES</td><td>⚠️ No decaen por edad · peso 4.8</td></tr>
-    <tr><td>Inundaciones/ciclones</td><td><span class="lines-badge">594–601</span></td><td><code>FMA-FLOOD</code></td><td>EN FR PT ES</td><td>Ciclones solo GEO-03/04</td></tr>
+    <tr><td>Inundaciones/ciclones</td><td><span class="lines-badge">594–601</span></td><td><code>FMA-FLOOD</code></td><td>EN FR PT ES</td><td>Ciclones PT → solo GEO-03B (Mozambique)</td></tr>
     <tr><td>Cortes eléctricos</td><td><span class="lines-badge">603–610</span></td><td><code>FMA-DROUGHT</code></td><td>EN FR ES</td><td><code>inga dam</code> (l.607) = 4.5 · solo GEO-01</td></tr>
     <tr><td>Sustitutos del cobalto</td><td><span class="lines-badge">612–624</span></td><td><code>DEM-SUBSTITUTE</code></td><td>EN FR ES PT</td><td>⚠️ Pesos NEGATIVOS · solo afecta SMC, no SSC</td></tr>
     <tr><td>Demanda/mercado</td><td><span class="lines-badge">626–638</span></td><td><code>DEM-SURGE</code></td><td>EN FR ES</td><td>Sin geo-boost · señales de tensión en oferta</td></tr>

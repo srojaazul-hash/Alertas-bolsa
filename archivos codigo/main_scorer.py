@@ -218,6 +218,11 @@ GEOGRAPHIC_TERMS = {
         "katanga", "lualaba", "haut-katanga", "kolwezi", "likasi",
         "lubumbashi", "fungurume", "tenke fungurume", "mutanda",
         "boss mining", "kamoto", "kamoa-kakula",
+        # CMOC operations in DRC (Tenke Fungurume + Kisanfu)
+        "cmoc", "kisanfu", "kfm mine",
+        # Este de DRC — zonas de conflicto M23 / ADF (relevantes para GEO-CONFLICT)
+        "north kivu", "south kivu", "nord-kivu", "sud-kivu",
+        "goma", "bukavu", "ituri", "beni", "butembo",
         "copperbelt", "copper belt", "central african copperbelt",
         "republique democratique du congo", "rdc",
         "ceinture cuivriere", "province du lualaba",
@@ -231,15 +236,20 @@ GEOGRAPHIC_TERMS = {
         "mopani copper mines", "vedanta zambia",
         "zambie", "copperbelt zambiano",
     ],
-    "GEO-03": [
+    "GEO-03A": [
+        # Corredor Este africano — Tanzania + Kenya (TAZARA, Central Corridor, Northern Corridor)
         "tanzania", "dar es salaam", "tpa", "tanzania ports authority",
         "central corridor", "tazara", "tazara railway",
-        "mozambique", "beira", "beira corridor", "nacala",
-        "nacala corridor", "cfm", "porto de beira", "porto de nacala",
         "northern corridor", "mombasa", "kenya",
         "east african corridor", "corredor central",
+        "africa oriental",
+    ],
+    "GEO-03B": [
+        # Corredor Sureste africano — Mozambique (Beira + Nacala corridors)
+        "mozambique", "beira", "beira corridor", "nacala",
+        "nacala corridor", "cfm", "porto de beira", "porto de nacala",
         "corridor de beira", "corredor de beira",
-        "corredor de nacala", "africa oriental",
+        "corredor de nacala",
     ],
     "GEO-04": [
         "south africa", "durban", "port of durban",
@@ -264,18 +274,13 @@ GEOGRAPHIC_TERMS = {
         "mindanao mining", "filipinas",
     ],
     "GEO-07": [
-        "china cobalt refining", "chinese cobalt", "cmoc china",
+        # Solo términos de localización/entidad (los eventos los detectan los KEYWORDS)
+        "china cobalt refining", "chinese cobalt",
         "zhejiang cobalt", "guangdong cobalt", "huayou cobalt",
         "gem co", "ganzhou cobalt", "jiangxi cobalt",
         "chinese battery supply chain", "china battery metals",
-        "china export restriction", "china export ban",
-        "china environmental shutdown", "china power cut",
-        "china energy rationing",
         "chine cobalt", "raffinage chinois",
-        "restriction export chine", "interdiction export chine",
-        "coupure d'energie chine",
         "china cobalto", "refinacion china",
-        "restriccion exportacion china", "corte energetico china",
     ],
     "GEO-08": [
         "port of durban", "durban port", "durban harbour",
@@ -290,18 +295,34 @@ GEOGRAPHIC_TERMS = {
         "puerto de dar es salaam", "puerto de beira",
         "corredor de lobito",
     ],
-    "GEO-09": [
-        "chile cobalt", "argentina cobalt", "latin america cobalt",
-        "atacama cobalt", "codelco cobalt byproduct",
-        "chile cobalto", "argentina cobalto",
-        "cobalto atacama",
+    "GEO-10": [
+        # Indonesia — productor en alza de cobalto vía níquel laterítico (Sulawesi)
+        "indonesia", "sulawesi", "morowali", "imip",
+        "indonesia morowali industrial park", "weda bay",
+        "iwip", "halmahera",
+        "vale indonesia", "ptvi", "huayou indonesia",
+        "tsingshan", "harita nickel", "indonesian nickel cobalt",
+        "high pressure acid leach", "hpal",
+        "indonesien", "indonesie",
+    ],
+    "GEO-11": [
+        # Refino europeo — alternativa estructural a China (afecta más a SMC)
+        "umicore", "umicore belgium", "kokkola refinery",
+        "nornickel finland", "harjavalta", "terrafame",
+        "glencore nikkelverk", "kristiansand refinery",
+        "european cobalt refining", "european battery alliance",
+        "belgium cobalt", "finland cobalt", "norway cobalt",
+        "raffinage europeen", "raffinerie europe",
+        "refinacion europea",
     ],
 }
 
 GEO_WEIGHTS = {
-    "GEO-01": 1.80, "GEO-02": 1.20, "GEO-03": 1.40,
+    "GEO-01": 1.80, "GEO-02": 1.20,
+    "GEO-03A": 1.40, "GEO-03B": 1.40,
     "GEO-04": 1.30, "GEO-05": 0.90, "GEO-06": 0.80,
-    "GEO-07": 1.60, "GEO-08": 1.50, "GEO-09": 0.40,
+    "GEO-07": 1.60, "GEO-08": 1.50,
+    "GEO-10": 1.10, "GEO-11": 0.80,
 }
 
 CATEGORY_MULTIPLIERS = {
@@ -414,7 +435,7 @@ CONTEXT_TRIGGER_TERMS = [
 
 KEYWORDS = [
     # --- LOG-PORT ---
-    ("port closure",              "LOG-PORT", 4.5, False, 50,  ["GEO-08","GEO-03","GEO-04"]),
+    ("port closure",              "LOG-PORT", 4.5, False, 50,  ["GEO-08","GEO-03A","GEO-03B","GEO-04"]),
     ("port congestion",           "LOG-PORT", 3.5, False, 50,  ["GEO-08"]),
     ("port strike",               "LOG-PORT", 4.2, False, 50,  ["GEO-08"]),
     ("dock workers strike",       "LOG-PORT", 4.2, False, 50,  ["GEO-08"]),
@@ -434,30 +455,30 @@ KEYWORDS = [
     ("congestion portuaria",      "LOG-PORT", 3.5, False, 50,  ["GEO-08"]),
 
     # --- LOG-RAIL ---
-    ("railway disruption",        "LOG-RAIL", 3.8, False, 50,  ["GEO-03","GEO-04","GEO-08"]),
-    ("rail shutdown",             "LOG-RAIL", 4.0, False, 50,  ["GEO-03","GEO-04"]),
+    ("railway disruption",        "LOG-RAIL", 3.8, False, 50,  ["GEO-03A","GEO-03B","GEO-04","GEO-08"]),
+    ("rail shutdown",             "LOG-RAIL", 4.0, False, 50,  ["GEO-03A","GEO-03B","GEO-04"]),
     ("freight rail suspension",   "LOG-RAIL", 3.8, False, 50,  ["GEO-04"]),
     ("rail sabotage",             "LOG-RAIL", 4.5, False, 50,  ["GEO-04"]),
     ("cable theft railway",       "LOG-RAIL", 3.5, False, 50,  ["GEO-04"]),
-    ("derailment",                "LOG-RAIL", 3.2, True,  80,  ["GEO-03","GEO-04"]),
-    ("perturbation ferroviaire",  "LOG-RAIL", 3.8, False, 50,  ["GEO-03","GEO-04"]),
-    ("interruption du chemin de fer","LOG-RAIL",4.0, False, 50, ["GEO-03","GEO-04"]),
+    ("derailment",                "LOG-RAIL", 3.2, True,  80,  ["GEO-03A","GEO-03B","GEO-04"]),
+    ("perturbation ferroviaire",  "LOG-RAIL", 3.8, False, 50,  ["GEO-03A","GEO-03B","GEO-04"]),
+    ("interruption du chemin de fer","LOG-RAIL",4.0, False, 50, ["GEO-03A","GEO-03B","GEO-04"]),
     ("sabotagem ferroviaria",     "LOG-RAIL", 4.5, False, 50,  ["GEO-04"]),
-    ("interrupcao ferroviaria",   "LOG-RAIL", 3.8, False, 50,  ["GEO-03","GEO-04"]),
-    ("interrupcion ferroviaria",  "LOG-RAIL", 3.8, False, 50,  ["GEO-03","GEO-04"]),
+    ("interrupcao ferroviaria",   "LOG-RAIL", 3.8, False, 50,  ["GEO-03A","GEO-03B","GEO-04"]),
+    ("interrupcion ferroviaria",  "LOG-RAIL", 3.8, False, 50,  ["GEO-03A","GEO-03B","GEO-04"]),
     ("sabotaje ferroviario",      "LOG-RAIL", 4.5, False, 50,  ["GEO-04"]),
 
     # --- LOG-ROAD ---
-    ("road blockade",             "LOG-ROAD", 3.2, True,  60,  ["GEO-01","GEO-02","GEO-03"]),
-    ("border crossing closed",    "LOG-ROAD", 3.5, False, 50,  ["GEO-01","GEO-02","GEO-03","GEO-04"]),
+    ("road blockade",             "LOG-ROAD", 3.2, True,  60,  ["GEO-01","GEO-02","GEO-03A","GEO-03B"]),
+    ("border crossing closed",    "LOG-ROAD", 3.5, False, 50,  ["GEO-01","GEO-02","GEO-03A","GEO-03B","GEO-04"]),
     ("border blockage",           "LOG-ROAD", 3.5, False, 50,  ["GEO-01","GEO-02"]),
     ("kasumbalesa",               "LOG-ROAD", 4.0, False, 100, ["GEO-01","GEO-02"]),
     ("beitbridge closure",        "LOG-ROAD", 3.8, False, 80,  ["GEO-04"]),
-    ("truckers strike",           "LOG-ROAD", 3.0, True,  60,  ["GEO-01","GEO-02","GEO-03","GEO-04"]),
+    ("truckers strike",           "LOG-ROAD", 3.0, True,  60,  ["GEO-01","GEO-02","GEO-03A","GEO-03B","GEO-04"]),
     ("blocage routier",           "LOG-ROAD", 3.2, True,  60,  ["GEO-01","GEO-02"]),
     ("frontiere fermee",          "LOG-ROAD", 3.5, False, 50,  ["GEO-01","GEO-02"]),
-    ("bloqueio rodoviario",       "LOG-ROAD", 3.2, True,  60,  ["GEO-03","GEO-04"]),
-    ("fronteira fechada",         "LOG-ROAD", 3.5, False, 50,  ["GEO-03","GEO-04"]),
+    ("bloqueio rodoviario",       "LOG-ROAD", 3.2, True,  60,  ["GEO-03B","GEO-04"]),
+    ("fronteira fechada",         "LOG-ROAD", 3.5, False, 50,  ["GEO-03B","GEO-04"]),
     ("bloqueo de carretera",      "LOG-ROAD", 3.2, True,  60,  ["GEO-01","GEO-02"]),
     ("frontera cerrada",          "LOG-ROAD", 3.5, False, 50,  ["GEO-01","GEO-02"]),
 
@@ -468,7 +489,7 @@ KEYWORDS = [
     ("mineral export freeze",     "LOG-CUSTOMS", 4.2, False, 50, ["GEO-01","GEO-02","GEO-07"]),
     ("retard douanier",           "LOG-CUSTOMS", 3.0, True,  60, ["GEO-01"]),
     ("suspension permis exportation","LOG-CUSTOMS",4.0,True, 80, ["GEO-01","GEO-02"]),
-    ("atraso alfandegario",       "LOG-CUSTOMS", 3.0, True,  60, ["GEO-03","GEO-04"]),
+    ("atraso alfandegario",       "LOG-CUSTOMS", 3.0, True,  60, ["GEO-03B","GEO-04"]),
     ("retraso aduanero",          "LOG-CUSTOMS", 3.0, True,  60, ["GEO-01","GEO-02"]),
     ("permiso de exportacion suspendido","LOG-CUSTOMS",4.0,True,80,["GEO-01"]),
 
@@ -481,7 +502,7 @@ KEYWORDS = [
     # --- GEO-CONFLICT ---
     ("armed conflict",            "GEO-CONFLICT", 4.5, False, 50, ["GEO-01","GEO-02"]),
     ("militia attack",            "GEO-CONFLICT", 4.8, False, 50, ["GEO-01"]),
-    ("rebel attack",              "GEO-CONFLICT", 4.5, False, 50, ["GEO-01","GEO-03"]),
+    ("rebel attack",              "GEO-CONFLICT", 4.5, False, 50, ["GEO-01","GEO-03A","GEO-03B"]),
     ("m23",                       "GEO-CONFLICT", 4.0, True,  50, ["GEO-01"]),
     ("mai-mai",                   "GEO-CONFLICT", 3.8, False, 80, ["GEO-01"]),
     ("mine attack",               "GEO-CONFLICT", 5.0, False, 80, ["GEO-01","GEO-02"]),
@@ -497,15 +518,15 @@ KEYWORDS = [
 
     # --- GEO-COUP ---
     ("coup",                      "GEO-COUP", 4.5, True,  40, ["GEO-01","GEO-02"]),
-    ("military takeover",         "GEO-COUP", 5.0, False, 50, ["GEO-01","GEO-02","GEO-03","GEO-04"]),
-    ("government overthrown",     "GEO-COUP", 5.0, False, 50, ["GEO-01","GEO-02","GEO-03","GEO-04"]),
-    ("state of emergency",        "GEO-COUP", 4.0, True,  80, ["GEO-01","GEO-02","GEO-03","GEO-04"]),
-    ("coup d'etat",               "GEO-COUP", 5.0, False, 50, ["GEO-01","GEO-02","GEO-03","GEO-04"]),
+    ("military takeover",         "GEO-COUP", 5.0, False, 50, ["GEO-01","GEO-02","GEO-03A","GEO-03B","GEO-04"]),
+    ("government overthrown",     "GEO-COUP", 5.0, False, 50, ["GEO-01","GEO-02","GEO-03A","GEO-03B","GEO-04"]),
+    ("state of emergency",        "GEO-COUP", 4.0, True,  80, ["GEO-01","GEO-02","GEO-03A","GEO-03B","GEO-04"]),
+    ("coup d'etat",               "GEO-COUP", 5.0, False, 50, ["GEO-01","GEO-02","GEO-03A","GEO-03B","GEO-04"]),
     ("prise de pouvoir militaire","GEO-COUP", 5.0, False, 50, ["GEO-01"]),
     ("etat d'urgence",            "GEO-COUP", 4.0, True,  80, ["GEO-01"]),
-    ("golpe de estado",           "GEO-COUP", 5.0, False, 50, ["GEO-01","GEO-02","GEO-03","GEO-04"]),
-    ("golpe militar",             "GEO-COUP", 5.0, False, 50, ["GEO-01","GEO-02","GEO-03","GEO-04"]),
-    ("estado de emergencia",      "GEO-COUP", 4.0, True,  80, ["GEO-01","GEO-02","GEO-03","GEO-04"]),
+    ("golpe de estado",           "GEO-COUP", 5.0, False, 50, ["GEO-01","GEO-02","GEO-03A","GEO-03B","GEO-04"]),
+    ("golpe militar",             "GEO-COUP", 5.0, False, 50, ["GEO-01","GEO-02","GEO-03A","GEO-03B","GEO-04"]),
+    ("estado de emergencia",      "GEO-COUP", 4.0, True,  80, ["GEO-01","GEO-02","GEO-03A","GEO-03B","GEO-04"]),
 
     # --- GEO-SANCTION ---
     ("sanctions",                 "GEO-SANCTION", 3.8, True,  80, ["GEO-01","GEO-02","GEO-07"]),
@@ -522,7 +543,7 @@ KEYWORDS = [
     ("demonstrations",            "GEO-PROTEST", 2.0, True,  60, ["GEO-01","GEO-02"]),
     ("manifestations",            "GEO-PROTEST", 2.0, True,  60, ["GEO-01"]),
     ("troubles civils",           "GEO-PROTEST", 2.8, True,  60, ["GEO-01"]),
-    ("protestos",                 "GEO-PROTEST", 2.2, True,  60, ["GEO-03","GEO-04"]),
+    ("protestos",                 "GEO-PROTEST", 2.2, True,  60, ["GEO-03B","GEO-04"]),
     ("protestas",                 "GEO-PROTEST", 2.2, True,  60, ["GEO-01","GEO-02"]),
 
     # --- LAB-STRIKE-ACT ---
@@ -538,7 +559,7 @@ KEYWORDS = [
     ("arret de travail",          "LAB-STRIKE-ACT", 4.2, True,  60, ["GEO-01","GEO-08"]),
     ("production suspendue",      "LAB-STRIKE-ACT", 4.5, True,  60, ["GEO-01"]),
     ("greve mineira",             "LAB-STRIKE-ACT", 4.8, False, 50, ["GEO-02"]),
-    ("paralisacao",               "LAB-STRIKE-ACT", 4.2, True,  60, ["GEO-03","GEO-04"]),
+    ("paralisacao",               "LAB-STRIKE-ACT", 4.2, True,  60, ["GEO-03B","GEO-04"]),
     ("huelga",                    "LAB-STRIKE-ACT", 4.0, True,  60, ["GEO-01","GEO-02","GEO-08"]),
     ("huelga minera",             "LAB-STRIKE-ACT", 4.8, False, 50, ["GEO-01","GEO-02"]),
     ("paro laboral",              "LAB-STRIKE-ACT", 4.2, True,  60, ["GEO-01","GEO-02"]),
@@ -549,14 +570,14 @@ KEYWORDS = [
     ("workers threaten",          "LAB-STRIKE-THR", 2.8, True, 60, ["GEO-01","GEO-02"]),
     ("menace de greve",           "LAB-STRIKE-THR", 3.0, True, 60, ["GEO-01","GEO-08"]),
     ("preavis de greve",          "LAB-STRIKE-THR", 3.5, True, 60, ["GEO-01"]),
-    ("ameaca de greve",           "LAB-STRIKE-THR", 3.0, True, 60, ["GEO-03","GEO-04"]),
+    ("ameaca de greve",           "LAB-STRIKE-THR", 3.0, True, 60, ["GEO-03B","GEO-04"]),
     ("amenaza de huelga",         "LAB-STRIKE-THR", 3.0, True, 60, ["GEO-01","GEO-02"]),
 
     # --- Kiswahili (DRC Oriental, Tanzania) ---
-    ("mgomo",                    "LAB-STRIKE-ACT", 3.5, True,  60, ["GEO-01","GEO-02","GEO-03"]),
+    ("mgomo",                    "LAB-STRIKE-ACT", 3.5, True,  60, ["GEO-01","GEO-02","GEO-03A"]),
     ("mgomo wa wachimbaji",      "LAB-STRIKE-ACT", 4.5, False, 50, ["GEO-01","GEO-02"]),
     ("mgodi kufungwa",           "LAB-STRIKE-ACT", 4.0, False, 60, ["GEO-01","GEO-02"]),
-    ("bandari kufungwa",         "LOG-PORT",        4.0, False, 50, ["GEO-03","GEO-08"]),
+    ("bandari kufungwa",         "LOG-PORT",        4.0, False, 50, ["GEO-03A","GEO-08"]),
 
     # --- LAB-ACCIDENT ---
     ("mine collapse",             "LAB-ACCIDENT", 5.0, False, 50, ["GEO-01","GEO-02"]),
@@ -566,7 +587,7 @@ KEYWORDS = [
     ("mining accident",           "LAB-ACCIDENT", 3.8, True,  60, ["GEO-01","GEO-02"]),
     ("effondrement de mine",      "LAB-ACCIDENT", 5.0, False, 50, ["GEO-01"]),
     ("inondation de mine",        "LAB-ACCIDENT", 4.5, False, 50, ["GEO-01"]),
-    ("acidente de mineracao",     "LAB-ACCIDENT", 3.8, True,  60, ["GEO-02","GEO-03"]),
+    ("acidente de mineracao",     "LAB-ACCIDENT", 3.8, True,  60, ["GEO-02","GEO-03B"]),
     ("colapso de mina",           "LAB-ACCIDENT", 5.0, False, 50, ["GEO-01","GEO-02"]),
     ("accidente minero",          "LAB-ACCIDENT", 3.8, True,  60, ["GEO-01","GEO-02"]),
 
@@ -587,7 +608,7 @@ KEYWORDS = [
     ("raw mineral export ban",    "REG-EXPORT-BAN", 5.0, False, 80, ["GEO-01","GEO-02"]),
     ("interdiction d'exportation","REG-EXPORT-BAN", 5.0, True,  80, ["GEO-01"]),
     ("restriction a l'exportation","REG-EXPORT-BAN",4.5, True,  80, ["GEO-01"]),
-    ("proibicao de exportacao",   "REG-EXPORT-BAN", 5.0, True,  80, ["GEO-02","GEO-03"]),
+    ("proibicao de exportacao",   "REG-EXPORT-BAN", 5.0, True,  80, ["GEO-02","GEO-03B"]),
     ("prohibicion de exportacion","REG-EXPORT-BAN", 5.0, True,  80, ["GEO-01","GEO-02"]),
     ("veda exportacion mineral",  "REG-EXPORT-BAN", 5.0, False, 80, ["GEO-01"]),
 
@@ -615,13 +636,13 @@ KEYWORDS = [
     ("nacionalizacion",           "REG-NATIONAL", 4.8, True, 80, ["GEO-01","GEO-02"]),
 
     # --- FMA-FLOOD ---
-    ("flooding",                  "FMA-FLOOD", 3.5, True,  60, ["GEO-01","GEO-02","GEO-03","GEO-04"]),
-    ("flash flood",               "FMA-FLOOD", 4.0, False, 50, ["GEO-01","GEO-02","GEO-03"]),
-    ("road washed out",           "FMA-FLOOD", 4.2, False, 50, ["GEO-01","GEO-02","GEO-03"]),
-    ("cyclone",                   "FMA-FLOOD", 4.5, False, 50, ["GEO-03","GEO-04"]),
-    ("inundacao",                 "FMA-FLOOD", 3.5, True,  60, ["GEO-03","GEO-04"]),
-    ("ciclone",                   "FMA-FLOOD", 4.5, False, 50, ["GEO-03"]),
-    ("inundacion",                "FMA-FLOOD", 3.5, True,  60, ["GEO-01","GEO-02","GEO-03"]),
+    ("flooding",                  "FMA-FLOOD", 3.5, True,  60, ["GEO-01","GEO-02","GEO-03A","GEO-03B","GEO-04"]),
+    ("flash flood",               "FMA-FLOOD", 4.0, False, 50, ["GEO-01","GEO-02","GEO-03A","GEO-03B"]),
+    ("road washed out",           "FMA-FLOOD", 4.2, False, 50, ["GEO-01","GEO-02","GEO-03A","GEO-03B"]),
+    ("cyclone",                   "FMA-FLOOD", 4.5, False, 50, ["GEO-03A","GEO-03B","GEO-04"]),
+    ("inundacao",                 "FMA-FLOOD", 3.5, True,  60, ["GEO-03B","GEO-04"]),
+    ("ciclone",                   "FMA-FLOOD", 4.5, False, 50, ["GEO-03B"]),
+    ("inundacion",                "FMA-FLOOD", 3.5, True,  60, ["GEO-01","GEO-02","GEO-03A","GEO-03B"]),
 
     # --- FMA-DROUGHT ---
     ("power outage",              "FMA-DROUGHT", 3.8, True,  60, ["GEO-01"]),
@@ -667,9 +688,9 @@ KEYWORDS = [
     ("workers return to work",    "RES-RESOLVE", -3.0, True,  80, []),
     ("agreement reached",         "RES-RESOLVE", -2.5, True,  80, []),
     ("operations resumed",        "RES-RESOLVE", -3.0, True,  80, []),
-    ("port reopened",             "RES-RESOLVE", -3.5, False, 60, ["GEO-08","GEO-03","GEO-04"]),
+    ("port reopened",             "RES-RESOLVE", -3.5, False, 60, ["GEO-08","GEO-03A","GEO-03B","GEO-04"]),
     ("mine reopened",             "RES-RESOLVE", -3.0, False, 60, ["GEO-01","GEO-02"]),
-    ("border reopened",           "RES-RESOLVE", -3.0, False, 60, ["GEO-01","GEO-02","GEO-03","GEO-04"]),
+    ("border reopened",           "RES-RESOLVE", -3.0, False, 60, ["GEO-01","GEO-02","GEO-03A","GEO-03B","GEO-04"]),
     ("greve terminee",            "RES-RESOLVE", -3.0, True,  80, []),
     ("reprise des operations",    "RES-RESOLVE", -3.0, True,  80, []),
     ("accord conclu",             "RES-RESOLVE", -2.5, True,  80, []),
@@ -1367,7 +1388,7 @@ def select_assets(hits: list, ssc: float, smc: float) -> list:
 
     # LOG events at key ports
     if any(c.startswith("LOG") for c in cats):
-        if geos & {"GEO-08","GEO-03","GEO-04"}:
+        if geos & {"GEO-08","GEO-03A","GEO-03B","GEO-04"}:
             for t in ["LIT","REMX","UMI.BR"]:
                 add(t, "LARGO", "1-3 semanas")
 
