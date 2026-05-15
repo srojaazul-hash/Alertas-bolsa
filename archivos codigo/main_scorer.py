@@ -96,7 +96,7 @@ ALERT_TO   = ENV.get("ALERT_TO", SMTP_USER)
 ACLED_KEY  = ENV.get("ACLED_KEY", "")
 ACLED_EMAIL = ENV.get("ACLED_EMAIL", "")
 BOT_EMAIL  = ENV.get("BOT_EMAIL", SMTP_USER)   # para User-Agent
-GEMINI_API_KEY = ENV.get("GEMINI_API_KEY", "")
+GEMINI_API_KEY = ENV.get("GEMINI_API_KEY", "") or os.environ.get("GEMINI_API_KEY", "")
 
 REQUEST_HEADERS = {
     "User-Agent": f"CobaltSupplyMonitor/1.0 (research bot; contact: {BOT_EMAIL})",
@@ -831,6 +831,147 @@ RSS_SOURCES = [
      "url":  "https://news.google.com/rss/search?q=Umicore+OR+Glencore+Nikkelverk+OR+Terrafame+cobalt&hl=en-US&gl=US&ceid=US:en",
      "lang": "en", "full_text": False, "rate_limit": 300, "timeout": 10},
 ]
+
+# ---------------------------------------------------------------------------
+# 7b. ARTICULOS DE PRUEBA SINTETICOS (modo COBALT_TEST_MODE=1)
+# ---------------------------------------------------------------------------
+# Cinco artículos diseñados para cubrir cada rama de la lógica Gemini:
+#   1. Path A → Gemini YES (disrupción real DRC, score >> 8.0)
+#   2. Path A → Gemini NO  (falso positivo: huelga en chocolatería)
+#   3. Path B → Gemini x1.5 (análisis legítimo de cadena de suministro)
+#   4. Path B → Gemini x0.0 (semiconductores; no es cobalto)
+#   5. Sin Gemini (score 3.0–8.0, < 3 context terms)
+# Activar con: COBALT_TEST_MODE=1
+# Las fechas se generan en runtime con datetime.now(timezone.utc).
+# ---------------------------------------------------------------------------
+
+def _build_test_articles() -> list:
+    now = datetime.now(timezone.utc)
+    return [
+        # --- Artículo 1: Path A YES esperado ---
+        {
+            "title": "Armed conflict near Kolwezi halts cobalt mining operations in DRC",
+            "body": (
+                "An armed conflict erupted overnight in the Lualaba province near Kolwezi, "
+                "forcing major cobalt mining sites in the DRC Copperbelt to suspend operations. "
+                "Militia attack reports from Katanga indicate that several mine sites in "
+                "Lubumbashi and Fungurume were targeted. Cobalt production at Tenke Fungurume "
+                "is on hold and cobalt supply is severely affected. Industry analysts warn that "
+                "the cobalt market will tighten in coming weeks as security forces struggle to "
+                "restore order. The rebel attack on a mine in Lualaba is the worst incident in "
+                "months and threatens battery-grade cobalt feedstock destined for refineries. "
+                "Workers on strike were not involved; this is purely a security incident mine event."
+            ),
+            "url": "https://test.local/article-1-drc-conflict",
+            "pub_date": now,
+            "source_name": "reuters_africa",
+            "lang": "en",
+        },
+        # --- Artículo 2: Path A NO esperado (falso positivo) ---
+        {
+            "title": "Workers on strike at Cobalt Chocolatiers factory in Lubumbashi",
+            "body": (
+                "Employees at the Cobalt Chocolatiers confectionery plant in Lubumbashi launched "
+                "a mining strike — pun intended by union leaders — to demand better working "
+                "conditions in the chocolate factory. The artisanal sweets producer, whose brand "
+                "trades on the 'cobalt' name purely for marketing reasons, has nothing to do with "
+                "actual cobalt mining. The workers on strike will return after wage negotiations. "
+                "Cobalt Chocolatiers operations are suspended only on the production line for "
+                "pralines. The dispute does not affect any mine or cobalt feedstock supply. "
+                "Local press in Katanga emphasised the symbolic naming and the fact that no "
+                "cobalt market disruption is expected."
+            ),
+            "url": "https://test.local/article-2-chocolate-strike",
+            "pub_date": now,
+            "source_name": "allafrica",
+            "lang": "en",
+        },
+        # --- Artículo 3: Path B x1.5 esperado ---
+        {
+            "title": "China cobalt refining capacity faces feedstock tightness, analysts warn",
+            "body": (
+                "Chinese cobalt refiners including Huayou Cobalt and Jiangxi Cobalt are seeing "
+                "tighter feedstock availability, according to a new supply chain analysis. The "
+                "report highlights how China's processing capacity dominates the global battery "
+                "metals landscape, with critical mineral flows still routed through Zhejiang and "
+                "Guangdong refineries. Downstream processing of cathode material relies on stable "
+                "concentrate shipments, and any slowdown in raw material supply would reverberate "
+                "through the EV supply chain. Industry observers note that cobalt shortage signals "
+                "are visible across precursor producers, and that strategic reserve discussions "
+                "in Beijing point to growing concern about hydrometallurgy bottlenecks. Offtake "
+                "agreements with African suppliers remain the dominant route for upstream feedstock."
+            ),
+            "url": "https://test.local/article-3-china-feedstock",
+            "pub_date": now,
+            "source_name": "mining_com_cobalt",
+            "lang": "en",
+        },
+        # --- Artículo 4: Path B x0.0 esperado (semiconductores) ---
+        {
+            "title": "Semiconductor supply chain stress mirrors past cobalt shortage episodes",
+            "body": (
+                "Analysts at a Sulawesi-based research firm note that the current semiconductor "
+                "supply chain crunch in Indonesia resembles, in structure only, the cobalt shortage "
+                "of 2022. Their report focuses entirely on chip fabrication, wafer feedstock, and "
+                "the downstream processing of silicon. Critical mineral discussions in the paper "
+                "refer to gallium and germanium, not battery metals. Mention of a refinery here "
+                "refers to a silicon refinery, not a cobalt or nickel facility. The cathode material "
+                "comparison is purely rhetorical; the authors stress that no cobalt feedstock or "
+                "concentrate shipment issue is at play. Investors should not confuse this with raw "
+                "material supply tightness in actual cobalt markets. The Indonesian government's "
+                "strategic reserve plans target chips, not minerals."
+            ),
+            "url": "https://test.local/article-4-semiconductors",
+            "pub_date": now,
+            "source_name": "mongabay",
+            "lang": "en",
+        },
+        # --- Artículo 5: Sin Gemini esperado ---
+        {
+            "title": "Indonesian nickel-cobalt output rises modestly at Morowali",
+            "body": (
+                "Indonesia's HPAL operations at Morowali reported a modest uptick in production "
+                "this quarter. The Sulawesi facility, part of IMIP, continues steady output of "
+                "intermediate products. Local officials in Halmahera confirmed no disruptions at "
+                "Weda Bay. A cobalt supply deficit headline cited by one trader earlier this month "
+                "appears to have been overstated. Markets reacted with little volatility and "
+                "industry watchers see this as routine reporting rather than a flag. No strike, "
+                "no closure, no regulatory action has been announced at the site."
+            ),
+            "url": "https://test.local/article-5-routine-indonesia",
+            "pub_date": now,
+            "source_name": "antara_business",
+            "lang": "en",
+        },
+    ]
+
+def run_gemini_test():
+    """Ejecuta los artículos de prueba sintéticos y loguea resultados de cada rama Gemini."""
+    log.info("=== MODO TEST GEMINI ACTIVADO ===")
+    log.info("GEMINI_API_KEY configurada: %s | google-genai disponible: %s",
+             bool(GEMINI_API_KEY), _GENAI_AVAILABLE)
+    test_articles = _build_test_articles()
+    for art in test_articles:
+        hits = score_article(art)
+        max_s = max((abs(h["score_bruto"]) for h in hits), default=0.0)
+        ctx = count_context_hits(art)
+        if max_s >= GEMINI_SCORE_THRESHOLD:
+            path = "A"
+        elif ctx >= GEMINI_CONTEXT_MIN:
+            path = "B"
+        else:
+            path = "NONE"
+        log.info(
+            "TEST [%s] pre-Gemini : hits=%d, max_score=%.2f, ctx_terms=%d, path=%s",
+            art["title"][:50], len(hits), max_s, ctx, path,
+        )
+        hits_after = analyze_with_gemini(art, hits)
+        max_after = max((abs(h["score_bruto"]) for h in hits_after), default=0.0)
+        log.info(
+            "TEST [%s] post-Gemini: hits=%d, max_score=%.2f",
+            art["title"][:50], len(hits_after), max_after,
+        )
+    log.info("=== FIN TEST GEMINI ===")
 
 SCRAPING_SOURCES = [
     {"name": "transnet_durban",
@@ -1755,6 +1896,9 @@ def compute_run_number(state: dict) -> int:
 def main():
     log.info("=== CobaltScorer iniciando ===")
     state = load_state()
+    if os.environ.get("COBALT_TEST_MODE") == "1":
+        run_gemini_test()
+        return
     purge_old_urls(state, hours=72)
     run_number = compute_run_number(state)
     log.info("Ejecucion %d del dia %s", run_number, state["last_run_date"])
