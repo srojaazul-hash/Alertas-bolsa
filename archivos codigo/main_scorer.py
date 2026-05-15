@@ -39,11 +39,18 @@ except ImportError:
 # 0. PATHS Y CONFIGURACION
 # ---------------------------------------------------------------------------
 
-BASE_DIR = Path.home() / "cobalt-alert"
-ENV_FILE = BASE_DIR / ".env"
+# BASE_DIR se autodetecta:
+#   1) Si hay un .env junto al propio script → usa ese directorio (dev local en Windows).
+#   2) Si no, usa ~/cobalt-alert/ (producción en la VM GCP).
+# En la VM ambas rutas coinciden, así que el comportamiento es idéntico al original.
+_SCRIPT_DIR = Path(__file__).resolve().parent
+_HOME_DIR   = Path.home() / "cobalt-alert"
+BASE_DIR    = _SCRIPT_DIR if (_SCRIPT_DIR / ".env").exists() else _HOME_DIR
+
+ENV_FILE   = BASE_DIR / ".env"
 STATE_FILE = BASE_DIR / "state.json"
-LOG_DIR = BASE_DIR / "logs"
-LOG_FILE = LOG_DIR / "scorer.log"
+LOG_DIR    = BASE_DIR / "logs"
+LOG_FILE   = LOG_DIR / "scorer.log"
 
 BASE_DIR.mkdir(parents=True, exist_ok=True)
 LOG_DIR.mkdir(parents=True, exist_ok=True)
@@ -1472,7 +1479,7 @@ def gemini_validate(article: dict) -> bool:
         "Answer only: YES or NO"
     )
     try:
-        answer = model.models.generate_content(model="gemini-2.0-flash", contents=prompt).text.strip().upper()
+        answer = model.models.generate_content(model="gemini-2.5-flash-lite", contents=prompt).text.strip().upper()
         log.info("Gemini Path A [%s]: %s", article.get("title", "?")[:55], answer)
         return answer.startswith("YES")
     except Exception as exc:
@@ -1496,7 +1503,7 @@ def gemini_multiplier(article: dict) -> float:
         "Answer only with one of these numbers: 0.0, 0.5, 1.0, or 1.5"
     )
     try:
-        val = float(model.models.generate_content(model="gemini-2.0-flash", contents=prompt).text.strip())
+        val = float(model.models.generate_content(model="gemini-2.5-flash-lite", contents=prompt).text.strip())
         val = max(0.0, min(1.5, val))
         log.info("Gemini Path B [%s]: x%.1f", article.get("title", "?")[:55], val)
         return val

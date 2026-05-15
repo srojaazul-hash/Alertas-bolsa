@@ -97,3 +97,17 @@ When modifying scoring behavior, update the relevant `.md` first, then update `m
 - `DEM-SUBSTITUTE` terms (cobalt-free batteries, LFP, sodium-ion) carry **negative** weight and only affect SMC, not SSC.
 - `REG` and `GEO-SANCTION` events do **not** decay by age if there is no resolution notice.
 - Port portal failures (HTTP errors) must not be treated as disruption signals — these sites have inherently low uptime.
+
+## Operational constraints (MUST follow — applies to all Claude sessions)
+
+These are absolute rules for any Claude instance working on this repo. Do not break them, do not negotiate them.
+
+### Secret handling
+- **Never** commit, push, copy, log, paste, transmit, or otherwise expose the **value** of any secret stored in `.env` (`GEMINI_API_KEY`, `SMTP_PASS`, `ACLED_KEY`, etc.). Reading the **variable name** for diagnostic purposes is fine (e.g., `grep -oE "^[A-Z_]+="`); reading or showing the **value** is not.
+- `.env` files are excluded by `.gitignore`. Never `git add` or `git commit` them, not even by accident or "just this once".
+- If the user asks you to inspect a `.env`, only confirm presence/absence of expected variables. Never echo the value back.
+
+### Cost authorization
+- **No paid actions without explicit user authorization.** Anything that may incur a cost — paid API tiers, enabling billing on a cloud project, paid model upgrades, paid plugins/services, anything that exits a free tier — must be flagged to the user in advance with an estimated cost, and only proceed after the user explicitly says yes.
+- Default to free-tier alternatives whenever possible (e.g., `gemini-1.5-flash` over paid models; Google AI Studio free quota over billed Google Cloud).
+- If a free option is being exhausted or hits quota, **stop and notify the user** rather than silently failing over to a paid path.
