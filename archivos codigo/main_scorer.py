@@ -1171,7 +1171,7 @@ def tokenize(text: str) -> list:
     """Normalize and split text into words for window searches."""
     return normalize(text).split()
 
-def has_anchor(text_norm: str, window_words: list = None) -> bool:
+def has_anchor(text_norm: str) -> bool:
     """Check if any anchor term is present in the normalized text."""
     for anchor in ANCHOR_TERMS:
         if normalize(anchor) in text_norm:
@@ -1242,7 +1242,6 @@ def score_article(article: dict) -> list:
     full_text = (article.get("title","") + " " + article.get("body",""))
     text_norm = normalize(full_text)
     words = text_norm.split()
-    has_anc = has_anchor(text_norm)
     geos = detect_geo(text_norm)
     has_specific_geo = len(geos) > 0
 
@@ -1260,12 +1259,13 @@ def score_article(article: dict) -> list:
         if pos == -1:
             continue
 
+        # Posición del keyword en palabras (se reutiliza en varios checks)
+        word_pos = len(text_norm[:pos].split())
+
         # requires_context: need anchor within context_window words
         if requires_context:
-            # Count word position
-            words_before = len(text_norm[:pos].split())
-            window_start = max(0, words_before - context_window)
-            window_end = min(len(words), words_before + context_window)
+            window_start = max(0, word_pos - context_window)
+            window_end = min(len(words), word_pos + context_window)
             window_text = " ".join(words[window_start:window_end])
             if not has_anchor(window_text):
                 continue
@@ -1275,14 +1275,12 @@ def score_article(article: dict) -> list:
             continue
 
         # "coup" solo puntúa si hay contexto geo/político en ventana ±40 palabras
-        word_pos = len(text_norm[:pos].split())
         if term_norm == "coup" and not has_coup_context(words, word_pos, window=40):
             continue
 
-        # Negation check
+        # Negation check (la penalización se aplica más abajo, una sola vez,
+        # tras pasar el umbral mínimo — ver scoring_rules.md §7)
         negated = has_negation_near(words, word_pos, window=5)
-        if negated:
-            weight = weight * 0.15
 
         # Determine best geo weight
         best_geo_weight = 1.0
@@ -1304,12 +1302,14 @@ def score_article(article: dict) -> list:
         cred = SOURCE_CREDIBILITY.get(article["source_name"], 0.70)
         age_f = age_factor(article["pub_date"], category)
 
+        # Umbral mínimo de activación se evalúa sobre el score bruto SIN
+        # penalización de negación (ver scoring_rules.md §6.6 y §7).
         score_bruto = abs(weight) * best_geo_weight * cat_mult * cred
 
         if score_bruto < 3.0:
             continue
 
-        # Negation applied
+        # Negación: se aplica una sola vez, después del umbral.
         if negated:
             score_bruto *= 0.15
 
@@ -1323,7 +1323,8 @@ def score_article(article: dict) -> list:
             else:
                 continue  # no geo context at all
 
-        # DEM-SUBSTITUTE: negative sign
+        # DEM-SUBSTITUTE y RES-RESOLVE conservan signo negativo a partir del
+        # peso original del keyword (negated no altera el signo).
         sign = -1 if weight < 0 else 1
 
         hits.append({
