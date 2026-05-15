@@ -1,0 +1,19 @@
+# Secrets
+.env
+
+# Runtime state
+state.json
+logs/
+
+# Python
+__pycache__/
+*.pyc
+*.pyo
+
+# Editor / IDE / herramientas locales
+.claude/
+.Rhistory
+.idea/
+.vscode/
+*.swp
+.DS_Store
