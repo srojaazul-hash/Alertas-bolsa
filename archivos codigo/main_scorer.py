@@ -722,10 +722,21 @@ SOURCE_CREDIBILITY = {
     "gdacs":              1.00,
     "acled":              1.00,
     "kitco":              0.85,
+    # GEO-10 (Indonesia / Sulawesi) — añadido v1.1
+    "antara_business":    0.85,
+    "antara_press":       0.85,
+    "mining_technology":  0.90,
+    "mongabay":           0.80,
+    # GEO-11 (Refino europeo) — añadido v1.1
+    "yle_news_en":        0.90,
+    "energy_storage_news":0.85,
+    # Google News (agregador)
     "gnews_cobalt_en":    0.50,
     "gnews_cobalt_fr":    0.50,
     "gnews_drc":          0.50,
     "gnews_durban":       0.50,
+    "gnews_indonesia_nickel": 0.50,
+    "gnews_europe_refining":  0.50,
 }
 
 # ---------------------------------------------------------------------------
@@ -769,6 +780,20 @@ RSS_SOURCES = [
     {"name": "lusaka_times",
      "url":  "https://www.lusakatimes.com/feed/",
      "lang": "en", "full_text": False, "rate_limit": 90, "timeout": 15},
+    # --- GEO-10: Indonesia / Sulawesi (HPAL, MHP, ESDM, IMIP, IWIP) ---
+    # Fase 2 — peso geográfico 1.10, fuentes robustas, ejecutar siempre
+    {"name": "antara_business",
+     "url":  "https://en.antaranews.com/rss/business-investment.xml",
+     "lang": "en", "full_text": True, "rate_limit": 60, "timeout": 15},
+    {"name": "antara_press",
+     "url":  "https://en.antaranews.com/rss/press-release.xml",
+     "lang": "en", "full_text": False, "rate_limit": 90, "timeout": 15},
+    {"name": "mining_technology",
+     "url":  "https://www.mining-technology.com/feed/",
+     "lang": "en", "full_text": False, "rate_limit": 60, "timeout": 15},
+    {"name": "mongabay",
+     "url":  "https://news.mongabay.com/feed/",
+     "lang": "en", "full_text": False, "rate_limit": 90, "timeout": 15},
     # --- Relief/Conflict ---
     {"name": "reliefweb_drc",
      "url":  "https://reliefweb.int/updates/rss.xml?country=cod",
@@ -776,6 +801,14 @@ RSS_SOURCES = [
     {"name": "gdacs",
      "url":  "https://www.gdacs.org/xml/rss.xml",
      "lang": "en", "full_text": False, "rate_limit": 120, "timeout": 10},
+    # --- GEO-11: Refino europeo (Umicore, Kokkola, Harjavalta, Terrafame, Nikkelverk) ---
+    # Fase 4 — peso geográfico 0.80, fuentes complementarias (afectan a SMC)
+    {"name": "yle_news_en",
+     "url":  "https://feeds.yle.fi/uutiset/v1/recent.rss?publisherIds=YLE_NEWS",
+     "lang": "en", "full_text": False, "rate_limit": 90, "timeout": 15},
+    {"name": "energy_storage_news",
+     "url":  "https://www.energy-storage.news/feed/",
+     "lang": "en", "full_text": False, "rate_limit": 90, "timeout": 15},
     # --- Google News ---
     {"name": "gnews_cobalt_en",
      "url":  "https://news.google.com/rss/search?q=cobalt+supply+disruption&hl=en-US&gl=US&ceid=US:en",
@@ -788,6 +821,14 @@ RSS_SOURCES = [
      "lang": "en", "full_text": False, "rate_limit": 300, "timeout": 10},
     {"name": "gnews_durban",
      "url":  "https://news.google.com/rss/search?q=Durban+port+strike+disruption&hl=en-US&gl=US&ceid=US:en",
+     "lang": "en", "full_text": False, "rate_limit": 300, "timeout": 10},
+    # GEO-10: búsqueda específica para disrupciones en Indonesia (HPAL, Morowali, Sulawesi)
+    {"name": "gnews_indonesia_nickel",
+     "url":  "https://news.google.com/rss/search?q=Indonesia+nickel+cobalt+HPAL+disruption&hl=en-US&gl=US&ceid=US:en",
+     "lang": "en", "full_text": False, "rate_limit": 300, "timeout": 10},
+    # GEO-11: búsqueda específica para refinadores europeos
+    {"name": "gnews_europe_refining",
+     "url":  "https://news.google.com/rss/search?q=Umicore+OR+Glencore+Nikkelverk+OR+Terrafame+cobalt&hl=en-US&gl=US&ceid=US:en",
      "lang": "en", "full_text": False, "rate_limit": 300, "timeout": 10},
 ]
 

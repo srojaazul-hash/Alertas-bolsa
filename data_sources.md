@@ -267,6 +267,106 @@ RSS_CHINA_SUPPLY_CHAIN = [
 ]
 ```
 
+### 2.5 Fuentes para Indonesia / Sulawesi (GEO-10)
+
+Indonesia produce ~5% del cobalto mundial vía HPAL como subproducto del níquel laterítico (Sulawesi, Halmahera, Obi). Es la zona de mayor crecimiento estructural del cobalto: ramp-ups proyectados en 2026 (Pomalaa, Bahodopi, Huafei, Halmahera Persada Lygend) elevan la producción ~21% anual. Las disrupciones reales ya observadas (landslides en IMIP febrero 2026, fallos en dry-stack tailings, escasez de azufre que recorta MHP) confirman que la zona genera eventos de alta señal con regularidad. Las fuentes siguientes han sido validadas en 2026.
+
+```python
+RSS_INDONESIA = [
+    {
+        "name": "ANTARA — Business & Investment",
+        "url": "https://en.antaranews.com/rss/business-investment.xml",
+        "credibility_modifier": 0.85,
+        "language": "en",
+        "update_frequency_min": 60,
+        "notes": "Agencia nacional de noticias de Indonesia, edición inglesa. Cobertura sólida de regulación minera, RKAB (cuotas), políticas del Ministerio ESDM, sindicatos. El feed business-investment captura noticias de cobalto y níquel cuando aparecen. NO publica feed minero específico — usar este feed business y filtrar por keywords.",
+        "requires_full_text_fetch": True,
+        "rate_limit_seconds": 60,
+        "timeout": 15,
+        "geographic_relevance": ["GEO-10"]
+    },
+    {
+        "name": "ANTARA — Press Release",
+        "url": "https://en.antaranews.com/rss/press-release.xml",
+        "credibility_modifier": 0.85,
+        "language": "en",
+        "update_frequency_min": 120,
+        "notes": "Comunicados oficiales reproducidos por ANTARA. Útil para detectar anuncios del Ministerio ESDM (cuotas, royalty, reclasificación de cobalto como mineral independiente). Volumen bajo pero alta señal.",
+        "requires_full_text_fetch": False,
+        "rate_limit_seconds": 90,
+        "timeout": 15,
+        "geographic_relevance": ["GEO-10"]
+    },
+    {
+        "name": "Mining Technology",
+        "url": "https://www.mining-technology.com/feed/",
+        "credibility_modifier": 0.90,
+        "language": "en",
+        "update_frequency_min": 240,
+        "notes": "Publicación industrial con cobertura analítica de Indonesia (proyectos HPAL, capacidad MHP, política de cuotas). Volumen medio. Útil para detectar tendencias estructurales (SMC) y cierres operacionales de plantas.",
+        "requires_full_text_fetch": False,
+        "rate_limit_seconds": 60,
+        "timeout": 15,
+        "geographic_relevance": ["GEO-10", "GEO-05", "GEO-06"]
+    },
+    {
+        "name": "Mongabay — Conservation News",
+        "url": "https://news.mongabay.com/feed/",
+        "credibility_modifier": 0.80,
+        "language": "en",
+        "update_frequency_min": 360,
+        "notes": "Mongabay es la fuente más fiable para impactos ambientales/sociales de la minería de níquel en Indonesia (Raja Ampat, Gebe, Halmahera, Sulawesi). Detecta moratorias, revocación de permisos, protestas comunitarias y fallos de tailings ANTES de que lleguen a Reuters. Feed global — filtrar por geographic_terms de GEO-10.",
+        "requires_full_text_fetch": False,
+        "rate_limit_seconds": 90,
+        "timeout": 15,
+        "geographic_relevance": ["GEO-10", "GEO-01"]
+    }
+]
+```
+
+**Notas de cobertura:**
+- **Jakarta Post, Tempo English:** No exponen feeds RSS estables (404/redirección). Excluidos. La cobertura equivalente la proporciona ANTARA + Google News (Fase 5).
+- **ESDM (Ministerio):** No tiene RSS oficial. Las decisiones llegan vía ANTARA Press Release o Mining Technology dentro de las 24-48h.
+- **Argus Media / S&P Platts:** Tienen titulares accesibles pero contenido completo de pago. No incluidos para evitar inestabilidad.
+
+### 2.6 Fuentes para Refino Europeo (GEO-11)
+
+GEO-11 cubre los refinadores europeos no-chinos: Umicore (Olen, Bélgica + Kokkola, Finlandia), Glencore Nikkelverk (Kristiansand, Noruega), Nornickel Harjavalta (Finlandia, intermitente por sanciones), Terrafame (Sotkamo, Finlandia). Su peso geográfico es bajo (0.80) porque representan capacidad estructural relevante para diversificación pero no son cuello de botella inmediato. Las disrupciones aquí afectan principalmente al SMC (horizonte 1-3 meses). Por eso las fuentes se ubican en **Fase 4 (complementaria)**: solo se consultan si el score tras fases 1-3 está bajo NARANJA.
+
+```python
+RSS_EUROPE_REFINING = [
+    {
+        "name": "Yle News — English",
+        "url": "https://feeds.yle.fi/uutiset/v1/recent.rss?publisherIds=YLE_NEWS",
+        "credibility_modifier": 0.90,
+        "language": "en",
+        "update_frequency_min": 120,
+        "notes": "Servicio público finlandés (equivalente BBC). Cobertura de Harjavalta, Kokkola, Terrafame y política minera finlandesa. Solo edición inglesa del feed. Volumen general — keywords GEO-11 filtrarán contenido relevante.",
+        "requires_full_text_fetch": False,
+        "rate_limit_seconds": 90,
+        "timeout": 15,
+        "geographic_relevance": ["GEO-11"]
+    },
+    {
+        "name": "Energy-Storage.News",
+        "url": "https://www.energy-storage.news/feed/",
+        "credibility_modifier": 0.85,
+        "language": "en",
+        "update_frequency_min": 180,
+        "notes": "Publicación especializada en almacenamiento de energía y cadena de suministro de baterías en Europa. Cubre Umicore, EBA (European Battery Alliance), regulación EU sobre materias primas críticas. Útil para SMC (señales estructurales).",
+        "requires_full_text_fetch": False,
+        "rate_limit_seconds": 90,
+        "timeout": 15,
+        "geographic_relevance": ["GEO-11"]
+    }
+]
+```
+
+**Notas de cobertura:**
+- **Umicore / Glencore / Terrafame newsrooms:** No tienen feeds RSS públicos estables. Sus comunicados corporativos llegan vía Reuters, Mining.com o agregadores europeos dentro de horas.
+- **European Commission (RESourceEU, Battery Regulation):** Sin RSS dedicado para materias primas críticas. Cobertura vía Reuters + Mining.com.
+- **Cobalt Institute (Bruselas):** Web sin feed RSS detectable. Publica trimestralmente — baja frecuencia.
+
 ---
 
 ## 3. FUENTES DE SCRAPING DIRECTO (PRIORIDAD 2)
@@ -532,6 +632,11 @@ PROCESSING_ORDER = [
     "club_mozambique",      # 2d — corredor Beira
     "east_african",         # 2e — corredor Tanzania
     "zambia_reports",       # 2f — GEO-02
+    # GEO-10 (Indonesia, peso 1.10) — fuentes robustas, ejecutar siempre
+    "antara_business",      # 2g — agencia nacional Indonesia
+    "antara_press",         # 2h — comunicados oficiales ESDM
+    "mining_technology",    # 2i — analítica industrial Indonesia/HPAL
+    "mongabay",             # 2j — disrupciones ambientales/sociales
 
     # Fase 3: Portales portuarios (ejecutar siempre — baja carga)
     "transnet_durban",      # 3a
@@ -544,12 +649,17 @@ PROCESSING_ORDER = [
     "usgs",                 # 4c
     "voa_africa",           # 4d
     "reuters_china",        # 4e
+    # GEO-11 (Refino europeo, peso 0.80) — afecta principalmente a SMC
+    "yle_news_en",          # 4f — Finlandia (Harjavalta, Kokkola, Terrafame)
+    "energy_storage_news",  # 4g — cadena de suministro baterías EU
 
     # Fase 5: Google News RSS (ejecutar siempre como red de seguridad)
     "gnews_cobalt_en",      # 5a
     "gnews_cobalt_fr",      # 5b
     "gnews_drc",            # 5c
-    "gnews_durban"          # 5d
+    "gnews_durban",         # 5d
+    "gnews_indonesia_nickel",  # 5e — GEO-10 disrupciones
+    "gnews_europe_refining"    # 5f — GEO-11 Umicore/Glencore/Terrafame
 ]
 ```
 
@@ -698,6 +808,14 @@ feeds=(
     "https://www.gdacs.org/xml/rss.xml"
     "https://clubofmozambique.com/feed/"
     "https://zambiareports.com/feed/"
+    # GEO-10 (Indonesia)
+    "https://en.antaranews.com/rss/business-investment.xml"
+    "https://en.antaranews.com/rss/press-release.xml"
+    "https://www.mining-technology.com/feed/"
+    "https://news.mongabay.com/feed/"
+    # GEO-11 (Refino europeo)
+    "https://feeds.yle.fi/uutiset/v1/recent.rss?publisherIds=YLE_NEWS"
+    "https://www.energy-storage.news/feed/"
 )
 
 for feed in "${feeds[@]}"; do
@@ -738,6 +856,23 @@ v1.0 — 2025-05 — Versión inicial.
                   1 API REST (ACLED — requiere registro gratuito).
                   4 Google News RSS de búsqueda.
                   Optimizado para GCP e2-micro free tier.
+
+v1.1 — 2026-05 — Cobertura para nuevas zonas geográficas GEO-10 y GEO-11.
+                  + GEO-10 (Indonesia/Sulawesi, peso 1.10): añadidos ANTARA
+                    Business & Investment, ANTARA Press Release, Mining
+                    Technology, Mongabay Conservation News (Fase 2).
+                  + GEO-11 (Refino europeo, peso 0.80): añadidos Yle News
+                    English (Finlandia) y Energy-Storage.News (Fase 4 —
+                    complementaria, ya que la zona afecta mayoritariamente
+                    al SMC).
+                  + 2 Google News RSS de búsqueda: indonesia_nickel y
+                    europe_refining.
+                  Total: 26 fuentes RSS activas, 6 Google News, 3 portales
+                  portuarios, 1 API REST.
+                  Fuentes evaluadas y excluidas: Jakarta Post (sin RSS
+                  estable), Tempo English (404), ESDM Ministry (sin RSS
+                  oficial), Cobalt Institute (sin RSS), Argus/S&P Platts
+                  (titulares libres pero contenido de pago).
 ```
 
 ### Archivos dependientes
