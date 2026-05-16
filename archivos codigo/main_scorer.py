@@ -1000,6 +1000,31 @@ def _build_test_articles() -> list:
             "source_name": "reuters_africa",
             "lang": "en",
         },
+        # --- Artículo 8: Test del fix punto C — filtro de residuo post-multiplicadores ---
+        # Hit calibrado para pasar el umbral 3.0 bruto pero caer por debajo de
+        # 1.0 tras los multiplicadores reductores:
+        #   "vessel shortage" (LOG-VESSEL, peso 3.0) en fuente Reuters (×1.00)
+        #   sin geo específico (×1.0) × LOG-VESSEL (×1.3) = 3.9 → pasa 3.0
+        #   Negado (cancelled) ×0.15 = 0.585
+        #   pub_date hace 4 días, LOG-* > 72h ×0.30 = 0.176
+        #   Solo geo genérico "africa" ×0.40 = 0.070
+        # Antes del fix C: hit emitido con score 0.07 (ruido en aggregate_scores).
+        # Después del fix C: hit descartado por el segundo umbral (< 1.0).
+        # Esperado: pre-fix hits>=1, post-fix hits=0, path=NONE.
+        {
+            "title": "Vessel shortage concerns cancelled by African shipping authorities",
+            "body": (
+                "Industry sources have cancelled the vessel shortage warnings "
+                "issued last week regarding cobalt market exports. Africa-wide "
+                "carriers confirm operations across the continent will resume "
+                "as normal in the coming days, with no further vessel shortage "
+                "expected at this stage."
+            ),
+            "url": "https://test.local/article-8-residue-filter",
+            "pub_date": now - timedelta(days=4),
+            "source_name": "reuters_africa",
+            "lang": "en",
+        },
     ]
 
 def run_gemini_test():
@@ -1414,6 +1439,14 @@ def score_article(article: dict) -> list:
                 score_bruto *= 0.40
             else:
                 continue  # no geo context at all
+
+        # Fix punto C: segundo umbral post-multiplicadores. El umbral 3.0 de
+        # arriba (scoring_rules.md §6.6) filtra el score bruto. Pero tras
+        # negación, age_factor y generic-geo, un hit puede quedar en valores
+        # ínfimos (ej. 0.07) y seguir contaminando aggregate_scores. Descartamos
+        # aquí los residuos por debajo de 1.0 para limpiar la señal final.
+        if score_bruto < 1.0:
+            continue
 
         # DEM-SUBSTITUTE y RES-RESOLVE conservan signo negativo a partir del
         # peso original del keyword (negated no altera el signo).
