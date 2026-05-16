@@ -4,8 +4,12 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Strategic source of truth
 
-**Before any substantial change, read `Hoja de ruta proyecto.md` (at the repo root, outside `archivos codigo/`).** That document is the authoritative source for:
+**Before any substantial change, read the strategic roadmap.** There are two versions:
 
+- **`Hoja de ruta publica.md`** (versioned in Git, available on every machine) — the operative source of truth: project vision, phases, design principles, anti-patterns, progress tracking. **This is the primary reference for any Claude session.**
+- **`Hoja de ruta proyecto.md`** (gitignored, owner's local PC only) — the owner's private extended version with additional personal context (career strategy, CV framing). If you find it locally, it complements the public one but never contradicts it.
+
+Both define:
 - Current phase and the next concrete task
 - Non-negotiable design principles (end-to-end feo > parte perfecta; auditable > inteligente; paper trading is the truth)
 - Anti-patterns to avoid
@@ -13,22 +17,23 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 The two reference documents have distinct roles:
 
-- **`Hoja de ruta proyecto.md`** = the **strategic** reference. What we're building, in what order, and why.
+- **`Hoja de ruta publica.md`** = the **strategic** reference. What we're building, in what order, and why.
 - **`CLAUDE.md`** (this file) = the **operational** reference. How to work in the codebase, conventions, constraints, technical specs.
 
-If the two ever contradict, the Hoja de ruta wins and CLAUDE.md should be updated to align.
+If they ever contradict, the public Hoja de ruta wins and CLAUDE.md should be updated to align.
 
 ## Reference documents
 
-| File | Purpose |
-|---|---|
-| `Hoja de ruta proyecto.md` (repo root) | Strategic roadmap, phases, principles, daily tracking |
-| `CLAUDE.md` (this file) | Operational guidance for Claude sessions |
-| `archivos codigo/MAPA_SCORER.html` | Visual map of `main_scorer.py` structure (open in browser) |
-| `archivos codigo/scoring_rules.md` | Spec: category multipliers, SSC/SMC formulas |
-| `archivos codigo/keyword_dictionary.md` | Spec: keyword categories and meanings |
-| `archivos codigo/data_sources.md` | Spec: RSS sources, credibility modifiers |
-| `archivos codigo/asset_map.md` | Spec: asset tickers and event-to-asset rules |
+| File | Tracked? | Purpose |
+|---|---|---|
+| `Hoja de ruta publica.md` (repo root) | ✅ | Strategic roadmap, phases, principles, daily tracking |
+| `Hoja de ruta proyecto.md` (repo root) | ❌ private | Owner's extended local version (career context) |
+| `CLAUDE.md` (this file) | ✅ | Operational guidance for Claude sessions |
+| `archivos codigo/MAPA_SCORER.html` | ✅ | Visual map of `main_scorer.py` structure (open in browser) |
+| `archivos codigo/scoring_rules.md` | ✅ | Spec: category multipliers, SSC/SMC formulas |
+| `archivos codigo/keyword_dictionary.md` | ✅ | Spec: keyword categories and meanings |
+| `archivos codigo/data_sources.md` | ✅ | Spec: RSS sources, credibility modifiers |
+| `archivos codigo/asset_map.md` | ✅ | Spec: asset tickers and event-to-asset rules |
 
 ## What this project is
 
