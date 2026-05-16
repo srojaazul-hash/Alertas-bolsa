@@ -1055,10 +1055,21 @@ def _build_test_articles() -> list:
     ]
 
 def run_gemini_test():
-    """Ejecuta los artículos de prueba sintéticos y loguea resultados de cada rama Gemini."""
-    log.info("=== MODO TEST GEMINI ACTIVADO ===")
+    """
+    Modo test: ejecuta los artículos sintéticos a través de score_article y
+    (opcionalmente) Gemini, más tests directos de aggregate_scores.
+
+    Flags:
+      COBALT_TEST_MODE=1       activa este modo
+      COBALT_TEST_NO_GEMINI=1  salta las llamadas reales a Gemini (útil para
+                               iterar sin consumir cuota free tier)
+    """
+    skip_gemini = os.environ.get("COBALT_TEST_NO_GEMINI") == "1"
+    log.info("=== MODO TEST ACTIVADO === (skip_gemini=%s)", skip_gemini)
     log.info("GEMINI_API_KEY configurada: %s | google-genai disponible: %s",
              bool(GEMINI_API_KEY), _GENAI_AVAILABLE)
+
+    # --- 1. Tests por artículo (cubren fixes A, B, C, D) ---
     test_articles = _build_test_articles()
     for art in test_articles:
         hits = score_article(art)
@@ -1075,14 +1086,83 @@ def run_gemini_test():
             "TEST [%s] pre-Gemini : hits=%d, max_score=%.2f, signed_sum=%+.2f, ctx_terms=%d, path=%s",
             art["title"][:50], len(hits), max_s, signed_sum, ctx, path,
         )
-        hits_after = analyze_with_gemini(art, hits)
+        if skip_gemini:
+            hits_after = hits  # bypass real Gemini call
+        else:
+            hits_after = analyze_with_gemini(art, hits)
         max_after = max((abs(h["score_bruto"]) for h in hits_after), default=0.0)
         signed_after = sum(h["score_bruto"] for h in hits_after)
         log.info(
             "TEST [%s] post-Gemini: hits=%d, max_score=%.2f, signed_sum=%+.2f",
             art["title"][:50], len(hits_after), max_after, signed_after,
         )
-    log.info("=== FIN TEST GEMINI ===")
+
+    # --- 2. Tests directos de aggregate_scores (cubren fix F) ---
+    _run_aggregate_clustering_tests()
+
+    log.info("=== FIN TEST ===")
+
+def _run_aggregate_clustering_tests():
+    """Tests sintéticos del clustering temporal en aggregate_scores (fix F)."""
+    log.info("--- Tests F: clustering temporal en aggregate_scores ---")
+
+    def _mk_hit(score: float, pub_date: datetime, source: str = "reuters_africa") -> dict:
+        """Construye un hit sintético para testing — todos GEO-01/LAB-STRIKE-ACT."""
+        return {
+            "keyword": "mining strike",
+            "category": "LAB-STRIKE-ACT",
+            "score_bruto": score,
+            "geo_codes": ["GEO-01"],
+            "best_geo": "GEO-01",
+            "pub_date": pub_date,
+            "source_name": source,
+            "url": "test://aggregate",
+            "title": "synthetic",
+            "negated": False,
+        }
+
+    midnight = datetime(2026, 5, 15, 0, 0, tzinfo=timezone.utc)
+
+    # Caso 1: 2 hits del mismo evento, 30 min cruzando medianoche UTC
+    # Pre-fix F: 2 buckets distintos (2026-05-14 vs 2026-05-15) → ssc = 18 + 18*0.5 = 27.0
+    # Post-fix F: 1 cluster (30 min < 24h) → ssc = 18.0
+    ssc, smc = aggregate_scores([
+        _mk_hit(18.0, midnight - timedelta(minutes=20)),
+        _mk_hit(18.0, midnight + timedelta(minutes=10)),
+    ])
+    log.info("F Caso 1 (mismo evento cruzando medianoche, 30min): SSC=%.2f SMC=%.2f"
+             "  [esperado post-fix: SSC=18.00 — pre-fix habria sido 27.00]", ssc, smc)
+
+    # Caso 2: 2 hits realmente distintos (30h apart) → comportamiento sin cambio
+    # Ambos pre y post-fix: 2 clusters → ssc = 18 + 18*0.5 = 27.0
+    ssc, smc = aggregate_scores([
+        _mk_hit(18.0, midnight),
+        _mk_hit(18.0, midnight + timedelta(hours=30)),
+    ])
+    log.info("F Caso 2 (eventos distintos, 30h apart): SSC=%.2f SMC=%.2f"
+             "  [esperado pre y post: SSC=27.00 — sin cambio]", ssc, smc)
+
+    # Caso 3: 3 fuentes high-cred cruzando medianoche → bonus x1.30 debe aplicar
+    # Pre-fix F: 2 buckets, ninguno con 3 fuentes → sin bonus → 18 + 18*0.5 = 27.0
+    # Post-fix F: 1 cluster con 3 fuentes ≥0.80 → bonus x1.30 → 18 * 1.30 = 23.40
+    ssc, smc = aggregate_scores([
+        _mk_hit(18.0, midnight - timedelta(minutes=30), source="reuters_africa"),  # 1.00
+        _mk_hit(18.0, midnight + timedelta(minutes=30), source="allafrica"),       # 0.85
+        _mk_hit(18.0, midnight + timedelta(hours=2),    source="bbc_africa"),      # 0.90
+    ])
+    log.info("F Caso 3 (3 fuentes cruzando medianoche, bonus): SSC=%.2f SMC=%.2f"
+             "  [esperado post-fix: SSC=23.40 — pre-fix habria sido 27.00 sin bonus]", ssc, smc)
+
+    # Caso 4: hits del mismo tiempo pero distinto geo → siempre 2 clusters
+    h_drc  = _mk_hit(18.0, midnight)
+    h_drc["best_geo"] = "GEO-01"
+    h_zam  = _mk_hit(18.0, midnight)
+    h_zam["best_geo"] = "GEO-02"
+    ssc, smc = aggregate_scores([h_drc, h_zam])
+    log.info("F Caso 4 (mismo tiempo, distinto geo): SSC=%.2f SMC=%.2f"
+             "  [esperado: SSC=27.00 — sin cambio, geos distintos = clusters distintos]", ssc, smc)
+
+    log.info("--- FIN tests F ---")
 
 SCRAPING_SOURCES = [
     {"name": "transnet_durban",
@@ -1515,29 +1595,47 @@ def calc_smc(score_bruto: float, category: str) -> float:
     override = SMC_CATEGORY_OVERRIDES.get(category, 1.0)
     return round(score_bruto * override, 3)
 
-def aggregate_scores(hits: list) -> tuple:
+def aggregate_scores(hits: list, time_window_hours: int = 24) -> tuple:
     """
     Aggregates hit scores into total SSC and SMC using the
     primary + 0.5*secondary formula from scoring_rules.md s7.
     Multi-source confirmation bonus applied per event cluster.
+
+    Fix punto F: antes se usaba un bucket por fecha UTC (strftime "%Y-%m-%d"),
+    lo que dividía artificialmente el mismo evento físico en dos cuando las
+    noticias cruzaban medianoche UTC. Ahora se usa una ventana deslizante:
+    hits del mismo (category, best_geo) cuyo pub_date queda dentro de
+    `time_window_hours` del último hit del cluster en curso se agrupan
+    juntos. Hits fuera de la ventana abren un cluster nuevo.
     """
     if not hits:
         return 0.0, 0.0
 
-    # Group hits into "events": same category + same geo + within 48h window
-    # Use a hash key: category + best_geo + date bucket
-    event_map = {}
+    # Paso 1: agrupar por (category, best_geo) sin tener en cuenta el tiempo
+    by_key = {}
     for hit in hits:
-        bucket_date = hit["pub_date"].strftime("%Y-%m-%d")
-        key = f"{hit['category']}__{hit['best_geo'] or 'NONE'}__{bucket_date}"
-        if key not in event_map:
-            event_map[key] = []
-        event_map[key].append(hit)
+        key_base = (hit["category"], hit["best_geo"] or "NONE")
+        by_key.setdefault(key_base, []).append(hit)
+
+    # Paso 2: dentro de cada grupo, clustering por ventana deslizante
+    event_clusters = []
+    window_seconds = time_window_hours * 3600
+    for group_hits in by_key.values():
+        group_hits.sort(key=lambda h: h["pub_date"])
+        current = [group_hits[0]]
+        for hit in group_hits[1:]:
+            delta = (hit["pub_date"] - current[-1]["pub_date"]).total_seconds()
+            if delta < window_seconds:
+                current.append(hit)
+            else:
+                event_clusters.append(current)
+                current = [hit]
+        event_clusters.append(current)
 
     ssc_scores = []
     smc_scores = []
 
-    for key, event_hits in event_map.items():
+    for event_hits in event_clusters:
         # Best score for this event cluster
         best = max(event_hits, key=lambda h: abs(h["score_bruto"]))
         cat = best["category"]
