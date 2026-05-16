@@ -974,6 +974,32 @@ def _build_test_articles() -> list:
             "source_name": "reuters_africa",
             "lang": "en",
         },
+        # --- Artículo 7: Test del fix punto B — falsos positivos localizados ---
+        # El artículo contiene 'coup de grace' (FP figurativo) Y eventos militares
+        # reales (military takeover, armed conflict, mine attack) en el mismo texto.
+        # Antes del fix: 'coup de grace' anulaba TODA la categoría GEO-COUP del
+        # artículo, hundiendo el score de la militarización real.
+        # Después del fix: solo la ocurrencia dentro de 'coup de grace' se descarta;
+        # 'military takeover' y demás puntúan limpiamente.
+        # Esperado: Path A con max_score alto y veredicto YES de Gemini.
+        {
+            "title": "DRC president orders military takeover of artisanal cobalt sector",
+            "body": (
+                "The coup de grace for the informal mining sector came when president "
+                "Tshisekedi ordered a sweeping military takeover of irregular sites "
+                "in Lualaba province. The armed conflict that has plagued cobalt "
+                "mining in the DRC Copperbelt entered a new phase as government forces "
+                "moved into Kolwezi and Likasi. A mine attack near Tenke Fungurume was "
+                "repelled this week according to security incident mine reports. "
+                "Industry analysts in Lubumbashi describe the situation as the worst "
+                "security disruption in the cobalt sector in five years, with "
+                "production at multiple sites suspended on security grounds."
+            ),
+            "url": "https://test.local/article-7-fp-localization",
+            "pub_date": now,
+            "source_name": "reuters_africa",
+            "lang": "en",
+        },
     ]
 
 def run_gemini_test():
@@ -1228,11 +1254,28 @@ def has_negation_near(words: list, kw_pos: int, window: int = 5) -> bool:
             return True
     return False
 
-def check_false_positive(text_norm: str, category: str) -> bool:
-    """Returns True if a known false-positive pattern is present."""
+def occurrence_is_false_positive(text_norm: str, pos: int, term_norm: str, category: str) -> bool:
+    """
+    True si la ocurrencia de term_norm en la posición `pos` forma parte de un
+    patrón de falso positivo conocido (ej: 'coup' dentro de 'coup de grace').
+
+    Fix punto B: antes, check_false_positive() era global al artículo y un FP
+    en el párrafo 10 anulaba menciones reales en el párrafo 1. Ahora se evalúa
+    localmente, comprobando si el patrón FP, alineado para contener el keyword
+    en `pos`, coincide exactamente con el texto.
+    """
     patterns = FALSE_POSITIVE_FILTERS.get(category, [])
     for pat in patterns:
-        if normalize(pat) in text_norm:
+        pat_norm = normalize(pat)
+        # ¿este patrón contiene nuestro keyword? Si no, no aplica
+        idx_in_pat = pat_norm.find(term_norm)
+        if idx_in_pat == -1:
+            continue
+        # Posición donde tendría que empezar el patrón para contener nuestra ocurrencia
+        pat_start = pos - idx_in_pat
+        if pat_start < 0:
+            continue
+        if text_norm[pat_start:pat_start + len(pat_norm)] == pat_norm:
             return True
     return False
 
@@ -1287,14 +1330,13 @@ def score_article(article: dict) -> list:
     for (term, category, weight, requires_context, context_window, geo_boost) in KEYWORDS:
         term_norm = normalize(term)
 
-        # False positive filter (sigue siendo global al artículo — pendiente refactor punto B)
-        if check_false_positive(text_norm, category):
-            continue
-
         # Recolectar TODAS las ocurrencias válidas del término (fix punto A):
         # antes solo se evaluaba la primera vía .find(), lo que hacía que una
         # primera mención negada bloqueara menciones positivas posteriores.
         # Ahora iteramos sobre todas y elegimos la mejor (preferimos no-negada).
+        # El filtro de falsos positivos (punto B) también se evalúa por
+        # ocurrencia: 'coup de grace' en un párrafo no anula 'military coup'
+        # en otro.
         valid_occurrences = []
         search_start = 0
         while True:
@@ -1303,7 +1345,7 @@ def score_article(article: dict) -> list:
                 break
             word_pos = len(text_norm[:pos].split())
 
-            # Filtros que invalidan la ocurrencia entera
+            # Filtros que invalidan ESTA ocurrencia concreta
             if requires_context:
                 window_start = max(0, word_pos - context_window)
                 window_end = min(len(words), word_pos + context_window)
@@ -1312,6 +1354,9 @@ def score_article(article: dict) -> list:
                     search_start = pos + len(term_norm)
                     continue
             if term_norm == "coup" and not has_coup_context(words, word_pos, window=40):
+                search_start = pos + len(term_norm)
+                continue
+            if occurrence_is_false_positive(text_norm, pos, term_norm, category):
                 search_start = pos + len(term_norm)
                 continue
 
