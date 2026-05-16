@@ -111,3 +111,50 @@ These are absolute rules for any Claude instance working on this repo. Do not br
 - **No paid actions without explicit user authorization.** Anything that may incur a cost — paid API tiers, enabling billing on a cloud project, paid model upgrades, paid plugins/services, anything that exits a free tier — must be flagged to the user in advance with an estimated cost, and only proceed after the user explicitly says yes.
 - Default to free-tier alternatives whenever possible (e.g., `gemini-1.5-flash` over paid models; Google AI Studio free quota over billed Google Cloud).
 - If a free option is being exhausted or hits quota, **stop and notify the user** rather than silently failing over to a paid path.
+
+## Trigger phrases (canonical response formats)
+
+These are user-defined phrases that demand a SPECIFIC response structure. When the user uses one of these phrases — verbatim or near-verbatim — the response MUST follow the documented format exactly, in order, with all sections present, using clear headings or numbered blocks (never paragraph walls).
+
+### "dame explicación Pro"
+
+Used primarily when a code error or design flaw has been identified and needs full explanation before fixing. The response MUST contain these nine sections, in this exact order:
+
+**1. Dónde está el fallo**
+Identify the specific location (function name, file, line range, structural issue) and name the problem in one phrase.
+Example: *"La función `score_article` está duplicada entre las líneas 1011 y 1280."*
+
+**2. Qué pasa con cada error**
+Explain the technical nature of the problem. What does the broken code actually do internally? Why is it broken? Use code references where they help.
+Example: *"Python al cargar el módulo retiene solo la segunda definición, sobrescribiendo la primera; las dos versiones difieren en cómo aplican el factor de credibilidad."*
+
+**3. Qué errores causa**
+Describe the OBSERVABLE consequences in the running system — la manifestación concreta del bug, no la teoría. Qué artículos puntúan mal, qué alertas se disparan o pierden, qué números salen inflados, etc.
+Example: *"Las noticias de Reuters están aplicando credibilidad 0.70 (fallback) en lugar de 1.00, infrapuntuando sistemáticamente las fuentes tier 1."*
+
+**4. Cuál es la solución**
+Propose the precise code change. Function-level o line-level si aplica. Indicar qué se añade, qué se elimina, qué se modifica.
+Example: *"Borrar la segunda definición de `score_article` (líneas 1240–1280) y conservar la primera, que es la que respeta la spec."*
+
+**5. Esfuerzo estimado**
+Cuantifica el tamaño y complejidad de la solución propuesta. Sirve para decidir si arreglarlo "ahora" o "luego", o si conviene meterlo en un commit aparte por seguridad.
+Formato: nº de líneas/archivos tocados + rating (trivial / medio / complejo) + tiempo aproximado.
+Example: *"2 líneas en una sola función · trivial · ~30 segundos."* o *"Refactor de scoring core, 4 funciones, posible regresión · complejo · ~30 minutos + sesión de validación."*
+
+**6. Riesgo del cambio**
+Probabilidad de que el fix rompa algo más en el sistema. Sirve para decidir estrategia de testing y momento de despliegue (ej. no mergear un cambio alto-riesgo justo antes de una ejecución del cron).
+Formato: nivel (bajo / medio / alto) + descripción del peor escenario posible + qué validar antes de pushear.
+Example: *"Bajo — solo afecta la rama Path A de Gemini, no toca scoring keyword ni agregación. Validar con `COBALT_TEST_MODE=1` antes de push."* o *"Alto — modifica la fórmula de `score_bruto`, podría desplazar todos los umbrales del sistema. Validar contra `state.json` histórico antes de pushear y vigilar el primer cron tras el merge."*
+
+**7. Cómo verificar que el fix funciona**
+Comando concreto o procedimiento manual para confirmar que el bug está resuelto y que no aparecieron regresiones. Aprovechar el `COBALT_TEST_MODE=1` cuando aplique.
+Example: *"Ejecutar `COBALT_TEST_MODE=1 python3 main_scorer.py` y verificar que el Path A del artículo 2 (chocolatería) sigue devolviendo NO. Si devuelve YES, el fix introdujo una regresión."*
+
+**8. Prioridad recomendada**
+Sugerencia de cuándo aplicar el fix relativa a otros pendientes.
+Formato: 🔴 inmediato / 🟠 esta sesión / 🟡 esta semana / ⚪ backlog. Justificación breve.
+Example: *"🔴 inmediato — el bug está corrompiendo el scoring de cada ejecución del cron; cada hora perdida son alertas reales que pueden estar fallando o disparando mal."*
+
+**9. Mejoras en el análisis**
+Describe how the system's analysis improves after the fix. Be concrete: qué tipo de artículos ahora puntúan correctamente, qué falsos positivos desaparecen, qué señales se amplifican, qué umbrales se vuelven a respetar.
+Example: *"Tras el fix, los artículos de Reuters volverán a tener su peso real (×1.00 en lugar de ×0.70), recuperando aprox. un 43% del score de las disrupciones detectadas por estas fuentes."*
