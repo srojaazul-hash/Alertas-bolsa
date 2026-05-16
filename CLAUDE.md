@@ -2,9 +2,39 @@
 
 This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
 
+## Strategic source of truth
+
+**Before any substantial change, read `Hoja de ruta proyecto.md` (at the repo root, outside `archivos codigo/`).** That document is the authoritative source for:
+
+- Current phase and the next concrete task
+- Non-negotiable design principles (end-to-end feo > parte perfecta; auditable > inteligente; paper trading is the truth)
+- Anti-patterns to avoid
+- Tracking checklist with concrete tasks per phase
+
+The two reference documents have distinct roles:
+
+- **`Hoja de ruta proyecto.md`** = the **strategic** reference. What we're building, in what order, and why.
+- **`CLAUDE.md`** (this file) = the **operational** reference. How to work in the codebase, conventions, constraints, technical specs.
+
+If the two ever contradict, the Hoja de ruta wins and CLAUDE.md should be updated to align.
+
+## Reference documents
+
+| File | Purpose |
+|---|---|
+| `Hoja de ruta proyecto.md` (repo root) | Strategic roadmap, phases, principles, daily tracking |
+| `CLAUDE.md` (this file) | Operational guidance for Claude sessions |
+| `archivos codigo/MAPA_SCORER.html` | Visual map of `main_scorer.py` structure (open in browser) |
+| `archivos codigo/scoring_rules.md` | Spec: category multipliers, SSC/SMC formulas |
+| `archivos codigo/keyword_dictionary.md` | Spec: keyword categories and meanings |
+| `archivos codigo/data_sources.md` | Spec: RSS sources, credibility modifiers |
+| `archivos codigo/asset_map.md` | Spec: asset tickers and event-to-asset rules |
+
 ## What this project is
 
-A cobalt supply-chain early-warning system. `main_scorer.py` runs 3×/day, scrapes RSS feeds and web sources, scores each article against a multilingual keyword dictionary, and fires an HTML email alert when disruption thresholds are exceeded. Designed to run on a GCP e2-micro free-tier instance (1 GB RAM, shared CPU, 10 GB disk).
+A **multi-asset commodity early-warning system in active evolution**. The first implementation (cobalt) is operational and serves as the reference architecture. The project is evolving into a generalizable framework with an LLM analyst layer and paper trading validation — see `Hoja de ruta proyecto.md` for current phase.
+
+The current cobalt-specific system: `main_scorer.py` runs 3×/day, scrapes RSS feeds and web sources, scores each article against a multilingual keyword dictionary, validates ambiguous matches via Gemini API, and fires an HTML email alert when disruption thresholds are exceeded. Designed to run on a GCP e2-micro free-tier instance (1 GB RAM, shared CPU, 10 GB disk).
 
 ## Running the script
 
@@ -91,6 +121,25 @@ The `.md` files are the authoritative specification for the scoring logic — `m
 
 When modifying scoring behavior, update the relevant `.md` first, then update `main_scorer.py` to match. Version both together.
 
+### Testing infrastructure
+
+Two test modes available via env flags:
+
+- **`COBALT_TEST_MODE=1`** — bypasses RSS fetching and runs a synthetic test suite instead. Currently covers 9 synthetic articles + 4 aggregate-clustering test cases, each designed to detect a specific class of bug (find-first-occurrence, FP-global, threshold ordering, sign-on-negation, UTC-bucket boundary). Each historical fix is locked in by its own test article.
+- **`COBALT_TEST_NO_GEMINI=1`** — skips real Gemini API calls (preserves free-tier daily quota during iteration). Combine with `COBALT_TEST_MODE=1` for offline regression testing.
+
+Default iteration command:
+```bash
+COBALT_TEST_MODE=1 COBALT_TEST_NO_GEMINI=1 python3 main_scorer.py
+```
+
+Full validation command (consumes Gemini quota):
+```bash
+COBALT_TEST_MODE=1 python3 main_scorer.py
+```
+
+**When fixing any bug, add a synthetic test article (or aggregate test case) that would have caught it.** The test suite is the permanent regression coverage; never delete cases or skip them silently.
+
 ### Key invariants
 
 - `requires_context: true` keywords only score if an anchor term (BLOQUE 0) appears within `context_window` words.
@@ -111,6 +160,29 @@ These are absolute rules for any Claude instance working on this repo. Do not br
 - **No paid actions without explicit user authorization.** Anything that may incur a cost — paid API tiers, enabling billing on a cloud project, paid model upgrades, paid plugins/services, anything that exits a free tier — must be flagged to the user in advance with an estimated cost, and only proceed after the user explicitly says yes.
 - Default to free-tier alternatives whenever possible (e.g., `gemini-1.5-flash` over paid models; Google AI Studio free quota over billed Google Cloud).
 - If a free option is being exhausted or hits quota, **stop and notify the user** rather than silently failing over to a paid path.
+
+## Working principles
+
+Practical patterns refined through many sessions. Follow them by default; deviate only with explicit user instruction.
+
+### Project execution
+- **End-to-end feo antes que parte perfecta.** Don't optimize an individual component until the full flow works, even if poorly. The Hoja de ruta enforces this with phased ordering.
+- **One logical change per commit.** Different conceptual changes go in separate commits, even if they touch the same file. Easier to revert and bisect.
+- **Test before pushing.** Validate syntax (`python -c "import ast; ast.parse(open('FILE').read())"`) and run `COBALT_TEST_MODE=1 COBALT_TEST_NO_GEMINI=1` to confirm no regression.
+- **Document the why, not the what.** In-line comments should explain the *reasoning* behind a fix or design decision, not restate what the code does. The git commit message captures the *what*; the comment captures *why future-Claude shouldn't undo this*.
+
+### Bug fixes
+- **One synthetic test per fix.** Every bug fixed must be covered by a test case that would detect it if it reappears. This is non-negotiable.
+- **Use the "dame explicación Pro" format** for non-trivial fixes (see Trigger phrases below). It forces structured reasoning before applying changes.
+
+### Commits
+- Maintain `Co-Authored-By: Claude Sonnet 4.6 <noreply@anthropic.com>` on collaborative commits.
+- Commit message in Spanish or English, but consistent within a single message.
+- Body should describe: problem, solution, validation outcome (e.g., "9/9 tests pass, signed_sum=+1.22 confirms expected sign inversion").
+
+### Working pace
+- When uncertain about user intent or scope, **ask** rather than guess. The Hoja de ruta defines priorities; if a request seems to deviate, surface it.
+- When iterating on something the user is testing manually (cron output, paper trading results), **wait for their report** before assuming success.
 
 ## Trigger phrases (canonical response formats)
 
