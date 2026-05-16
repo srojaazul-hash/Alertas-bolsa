@@ -950,6 +950,30 @@ def _build_test_articles() -> list:
             "source_name": "antara_business",
             "lang": "en",
         },
+        # --- Artículo 6: Test del fix punto A — múltiples ocurrencias ---
+        # La primera mención de "mining strike" está negada por "cancelled".
+        # Las menciones posteriores son activas y reales.
+        # Antes del fix: score reducido ×0.15 por negación (incorrecto).
+        # Después del fix: score completo, la mejor ocurrencia es no-negada.
+        # Esperado: Path A con max_score alto (~18) y veredicto YES de Gemini.
+        {
+            "title": "Mining strike resumes at Tenke Fungurume after July truce",
+            "body": (
+                "The mining strike at Tenke Fungurume that was cancelled in July "
+                "has resumed. A new mining strike began this morning in the "
+                "Lualaba province. Workers at Mutanda have joined a new mining strike "
+                "to demand wage revisions tied to the cobalt price spike. Cobalt "
+                "production in the DRC Copperbelt is severely affected and union "
+                "leaders confirm the mining strike will continue indefinitely until "
+                "operators return to the negotiation table. Industry sources in "
+                "Kolwezi describe the situation as the worst labor disruption in "
+                "the cobalt sector this year."
+            ),
+            "url": "https://test.local/article-6-negation-recovery",
+            "pub_date": now,
+            "source_name": "reuters_africa",
+            "lang": "en",
+        },
     ]
 
 def run_gemini_test():
@@ -1262,32 +1286,48 @@ def score_article(article: dict) -> list:
     hits = []
     for (term, category, weight, requires_context, context_window, geo_boost) in KEYWORDS:
         term_norm = normalize(term)
-        pos = text_norm.find(term_norm)
-        if pos == -1:
-            continue
 
-        # Posición del keyword en palabras (se reutiliza en varios checks)
-        word_pos = len(text_norm[:pos].split())
-
-        # requires_context: need anchor within context_window words
-        if requires_context:
-            window_start = max(0, word_pos - context_window)
-            window_end = min(len(words), word_pos + context_window)
-            window_text = " ".join(words[window_start:window_end])
-            if not has_anchor(window_text):
-                continue
-
-        # False positive filter
+        # False positive filter (sigue siendo global al artículo — pendiente refactor punto B)
         if check_false_positive(text_norm, category):
             continue
 
-        # "coup" solo puntúa si hay contexto geo/político en ventana ±40 palabras
-        if term_norm == "coup" and not has_coup_context(words, word_pos, window=40):
+        # Recolectar TODAS las ocurrencias válidas del término (fix punto A):
+        # antes solo se evaluaba la primera vía .find(), lo que hacía que una
+        # primera mención negada bloqueara menciones positivas posteriores.
+        # Ahora iteramos sobre todas y elegimos la mejor (preferimos no-negada).
+        valid_occurrences = []
+        search_start = 0
+        while True:
+            pos = text_norm.find(term_norm, search_start)
+            if pos == -1:
+                break
+            word_pos = len(text_norm[:pos].split())
+
+            # Filtros que invalidan la ocurrencia entera
+            if requires_context:
+                window_start = max(0, word_pos - context_window)
+                window_end = min(len(words), word_pos + context_window)
+                window_text = " ".join(words[window_start:window_end])
+                if not has_anchor(window_text):
+                    search_start = pos + len(term_norm)
+                    continue
+            if term_norm == "coup" and not has_coup_context(words, word_pos, window=40):
+                search_start = pos + len(term_norm)
+                continue
+
+            negated = has_negation_near(words, word_pos, window=5)
+            valid_occurrences.append({"word_pos": word_pos, "negated": negated})
+            search_start = pos + len(term_norm)
+
+        if not valid_occurrences:
             continue
 
-        # Negation check (la penalización se aplica más abajo, una sola vez,
-        # tras pasar el umbral mínimo — ver scoring_rules.md §7)
-        negated = has_negation_near(words, word_pos, window=5)
+        # Mejor ocurrencia: cualquier no-negada gana sobre negadas.
+        # Si todas están negadas, conservamos la primera (negated=True → penalización).
+        non_negated = [o for o in valid_occurrences if not o["negated"]]
+        best = non_negated[0] if non_negated else valid_occurrences[0]
+        word_pos = best["word_pos"]
+        negated = best["negated"]
 
         # Determine best geo weight
         best_geo_weight = 1.0
