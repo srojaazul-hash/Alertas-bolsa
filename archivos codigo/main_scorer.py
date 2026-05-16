@@ -346,7 +346,7 @@ CATEGORY_MULTIPLIERS = {
     "REG-EXPORT-BAN": 2.3, "REG-TAX": 1.6, "REG-LICENSE": 1.9,
     "REG-ENV": 1.7, "REG-NATIONAL": 1.8, "REG-TARIFF": 1.4,
     # DEM
-    "DEM-SURGE": 1.5, "DEM-DROP": -1.3,
+    "DEM-SURGE": 1.5,
     "DEM-STOCK": 1.2, "DEM-SUBSTITUTE": -1.5,
     # FMA
     "FMA-FLOOD": 1.7, "FMA-DROUGHT": 1.4,
@@ -1025,6 +1025,33 @@ def _build_test_articles() -> list:
             "source_name": "reuters_africa",
             "lang": "en",
         },
+        # --- Artículo 9: Test del fix punto D — negación invierte signo en DEM-SUBSTITUTE ---
+        # Keyword "lfp battery" (DEM-SUBSTITUTE, peso -3.0) negado por "not"
+        # en ventana ±5 palabras. Mención de DRC para que el score supere el
+        # umbral 1.0 (post-fix C):
+        #   score_bruto = 3.0 × 1.80 (GEO-01) × 1.5 (DEM-SUBSTITUTE) × 1.00 = 8.10
+        #   negado ×0.15 = 1.215 → pasa nuevo umbral 1.0
+        # Antes del fix D: sign = -1 → score final = -1.215 (señal NEGATIVA
+        #   incorrecta: "LFP no reemplaza cobalto" interpretado como bajada
+        #   de demanda).
+        # Después del fix D: sign = +1 (weight<0 AND negated) → score = +1.215
+        #   (señal POSITIVA correcta para la demanda de cobalto).
+        # Esperado: signed_sum positivo en el log post-fix.
+        {
+            "title": "LFP batteries have not replaced cobalt in EV markets, DRC analysts confirm",
+            "body": (
+                "Despite years of speculation, lfp battery technology has not "
+                "displaced cobalt-based chemistries in premium EV segments. "
+                "Industry observers in the DRC Copperbelt confirm that lfp "
+                "battery adoption has not eliminated cobalt requirements. "
+                "Analysts in Kolwezi say lfp battery shift forecasts have not "
+                "materialized at the scale predicted by 2023 reports."
+            ),
+            "url": "https://test.local/article-9-dem-negation-inversion",
+            "pub_date": now,
+            "source_name": "reuters_africa",
+            "lang": "en",
+        },
     ]
 
 def run_gemini_test():
@@ -1036,6 +1063,7 @@ def run_gemini_test():
     for art in test_articles:
         hits = score_article(art)
         max_s = max((abs(h["score_bruto"]) for h in hits), default=0.0)
+        signed_sum = sum(h["score_bruto"] for h in hits)
         ctx = count_context_hits(art)
         if max_s >= GEMINI_SCORE_THRESHOLD:
             path = "A"
@@ -1044,14 +1072,15 @@ def run_gemini_test():
         else:
             path = "NONE"
         log.info(
-            "TEST [%s] pre-Gemini : hits=%d, max_score=%.2f, ctx_terms=%d, path=%s",
-            art["title"][:50], len(hits), max_s, ctx, path,
+            "TEST [%s] pre-Gemini : hits=%d, max_score=%.2f, signed_sum=%+.2f, ctx_terms=%d, path=%s",
+            art["title"][:50], len(hits), max_s, signed_sum, ctx, path,
         )
         hits_after = analyze_with_gemini(art, hits)
         max_after = max((abs(h["score_bruto"]) for h in hits_after), default=0.0)
+        signed_after = sum(h["score_bruto"] for h in hits_after)
         log.info(
-            "TEST [%s] post-Gemini: hits=%d, max_score=%.2f",
-            art["title"][:50], len(hits_after), max_after,
+            "TEST [%s] post-Gemini: hits=%d, max_score=%.2f, signed_sum=%+.2f",
+            art["title"][:50], len(hits_after), max_after, signed_after,
         )
     log.info("=== FIN TEST GEMINI ===")
 
@@ -1448,9 +1477,18 @@ def score_article(article: dict) -> list:
         if score_bruto < 1.0:
             continue
 
-        # DEM-SUBSTITUTE y RES-RESOLVE conservan signo negativo a partir del
-        # peso original del keyword (negated no altera el signo).
-        sign = -1 if weight < 0 else 1
+        # Signo del hit:
+        # - Pesos positivos (disrupciones) → siempre +1. Una negación atenúa
+        #   magnitud (x0.15) pero mantiene el signo: "huelga cancelada" sigue
+        #   siendo señal débil de disrupción, no señal contraria.
+        # - Pesos negativos (DEM-SUBSTITUTE, RES-RESOLVE) → -1 por defecto.
+        #   Pero si están negados, la negación INVIERTE la dirección semántica:
+        #   "LFP no está reemplazando cobalto" pasa a ser señal positiva para
+        #   la demanda de cobalto (fix punto D).
+        if weight < 0:
+            sign = +1 if negated else -1
+        else:
+            sign = 1
 
         hits.append({
             "keyword": term,
