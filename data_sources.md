@@ -876,6 +876,7 @@ v1.1 — 2026-05 — Cobertura para nuevas zonas geográficas GEO-10 y GEO-11.
 ```
 
 ### Archivos dependientes
-- `main_scorer.py` — implementa el procesamiento de todas las fuentes aquí definidas
+- `framework/sources.py` — implementa los fetchers genéricos (RSS, scraping, ACLED)
+- `assets/cobalt/dictionary.py` — declara `RSS_SOURCES`, `SCRAPING_SOURCES` y `SOURCE_CREDIBILITY` específicos de cobalto
 - `scoring_rules.md` — define los modificadores de credibilidad por fuente (Sección 5)
 - `keyword_dictionary.md` — define los términos buscados en el contenido de cada fuente

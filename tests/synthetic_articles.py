@@ -1,0 +1,355 @@
+"""tests.synthetic_articles — Suite sintética de regresión.
+
+Cada artículo y caso de cluster es un test de regresión permanente. Cubren:
+
+  Artículo 1   Path A YES esperado (disrupción real DRC, score >> 8.0)
+  Artículo 2   Path A NO esperado (falso positivo: chocolatería)
+  Artículo 3   Path B x1.5 esperado (cadena de suministro China)
+  Artículo 4   Path B x0.0 esperado (semiconductores, no cobalto)
+  Artículo 5   Sin Gemini esperado (score 3.0–8.0, < 3 context terms)
+  Artículo 6   Fix A — múltiples ocurrencias (primera negada, posteriores reales)
+  Artículo 7   Fix B — FP localizado ("coup de grace" + military takeover real)
+  Artículo 8   Fix C — filtro residual post-multiplicadores (descarta hit 0.07)
+  Artículo 9   Fix D — negación invierte signo en DEM-SUBSTITUTE
+
+  Cluster F1   Fix F — mismo evento cruzando medianoche UTC se mantiene unido
+  Cluster F2   Fix F — eventos distintos (30h apart) siguen separados
+  Cluster F3   Fix F — 3 fuentes high-cred cruzando medianoche → bonus ×1.30
+  Cluster F4   Fix F — distinto geo siempre = clusters distintos
+
+`run_gemini_test(cfg, client)` ejecuta toda la suite. Si `client` es None,
+Path A/B real se omite (modo COBALT_TEST_NO_GEMINI). Diseñado para no consumir
+cuota durante iteración.
+"""
+
+import logging
+import os
+from datetime import datetime, timezone, timedelta
+
+from framework.aggregator import aggregate_scores
+from framework.llm_validator import analyze_with_gemini, count_context_hits, is_available
+from framework.scoring import AssetConfig, score_article
+
+log = logging.getLogger("tests.synthetic_articles")
+
+
+# ---------------------------------------------------------------------------
+# Artículos sintéticos (textos cobalto-específicos por necesidad de los fixes)
+# ---------------------------------------------------------------------------
+
+def build_test_articles() -> list:
+    """Construye los 9 artículos sintéticos con `pub_date` en runtime."""
+    now = datetime.now(timezone.utc)
+    return [
+        # --- Artículo 1: Path A YES esperado ---
+        {
+            "title": "Armed conflict near Kolwezi halts cobalt mining operations in DRC",
+            "body": (
+                "An armed conflict erupted overnight in the Lualaba province near Kolwezi, "
+                "forcing major cobalt mining sites in the DRC Copperbelt to suspend operations. "
+                "Militia attack reports from Katanga indicate that several mine sites in "
+                "Lubumbashi and Fungurume were targeted. Cobalt production at Tenke Fungurume "
+                "is on hold and cobalt supply is severely affected. Industry analysts warn that "
+                "the cobalt market will tighten in coming weeks as security forces struggle to "
+                "restore order. The rebel attack on a mine in Lualaba is the worst incident in "
+                "months and threatens battery-grade cobalt feedstock destined for refineries. "
+                "Workers on strike were not involved; this is purely a security incident mine event."
+            ),
+            "url": "https://test.local/article-1-drc-conflict",
+            "pub_date": now,
+            "source_name": "reuters_africa",
+            "lang": "en",
+        },
+        # --- Artículo 2: Path A NO esperado (falso positivo) ---
+        {
+            "title": "Workers on strike at Cobalt Chocolatiers factory in Lubumbashi",
+            "body": (
+                "Employees at the Cobalt Chocolatiers confectionery plant in Lubumbashi launched "
+                "a mining strike — pun intended by union leaders — to demand better working "
+                "conditions in the chocolate factory. The artisanal sweets producer, whose brand "
+                "trades on the 'cobalt' name purely for marketing reasons, has nothing to do with "
+                "actual cobalt mining. The workers on strike will return after wage negotiations. "
+                "Cobalt Chocolatiers operations are suspended only on the production line for "
+                "pralines. The dispute does not affect any mine or cobalt feedstock supply. "
+                "Local press in Katanga emphasised the symbolic naming and the fact that no "
+                "cobalt market disruption is expected."
+            ),
+            "url": "https://test.local/article-2-chocolate-strike",
+            "pub_date": now,
+            "source_name": "allafrica",
+            "lang": "en",
+        },
+        # --- Artículo 3: Path B x1.5 esperado ---
+        {
+            "title": "China cobalt refining capacity faces feedstock tightness, analysts warn",
+            "body": (
+                "Chinese cobalt refiners including Huayou Cobalt and Jiangxi Cobalt are seeing "
+                "tighter feedstock availability, according to a new supply chain analysis. The "
+                "report highlights how China's processing capacity dominates the global battery "
+                "metals landscape, with critical mineral flows still routed through Zhejiang and "
+                "Guangdong refineries. Downstream processing of cathode material relies on stable "
+                "concentrate shipments, and any slowdown in raw material supply would reverberate "
+                "through the EV supply chain. Industry observers note that cobalt shortage signals "
+                "are visible across precursor producers, and that strategic reserve discussions "
+                "in Beijing point to growing concern about hydrometallurgy bottlenecks. Offtake "
+                "agreements with African suppliers remain the dominant route for upstream feedstock."
+            ),
+            "url": "https://test.local/article-3-china-feedstock",
+            "pub_date": now,
+            "source_name": "mining_com_cobalt",
+            "lang": "en",
+        },
+        # --- Artículo 4: Path B x0.0 esperado (semiconductores) ---
+        {
+            "title": "Semiconductor supply chain stress mirrors past cobalt shortage episodes",
+            "body": (
+                "Analysts at a Sulawesi-based research firm note that the current semiconductor "
+                "supply chain crunch in Indonesia resembles, in structure only, the cobalt shortage "
+                "of 2022. Their report focuses entirely on chip fabrication, wafer feedstock, and "
+                "the downstream processing of silicon. Critical mineral discussions in the paper "
+                "refer to gallium and germanium, not battery metals. Mention of a refinery here "
+                "refers to a silicon refinery, not a cobalt or nickel facility. The cathode material "
+                "comparison is purely rhetorical; the authors stress that no cobalt feedstock or "
+                "concentrate shipment issue is at play. Investors should not confuse this with raw "
+                "material supply tightness in actual cobalt markets. The Indonesian government's "
+                "strategic reserve plans target chips, not minerals."
+            ),
+            "url": "https://test.local/article-4-semiconductors",
+            "pub_date": now,
+            "source_name": "mongabay",
+            "lang": "en",
+        },
+        # --- Artículo 5: Sin Gemini esperado ---
+        {
+            "title": "Indonesian nickel-cobalt output rises modestly at Morowali",
+            "body": (
+                "Indonesia's HPAL operations at Morowali reported a modest uptick in production "
+                "this quarter. The Sulawesi facility, part of IMIP, continues steady output of "
+                "intermediate products. Local officials in Halmahera confirmed no disruptions at "
+                "Weda Bay. A cobalt supply deficit headline cited by one trader earlier this month "
+                "appears to have been overstated. Markets reacted with little volatility and "
+                "industry watchers see this as routine reporting rather than a flag. No strike, "
+                "no closure, no regulatory action has been announced at the site."
+            ),
+            "url": "https://test.local/article-5-routine-indonesia",
+            "pub_date": now,
+            "source_name": "antara_business",
+            "lang": "en",
+        },
+        # --- Artículo 6: Fix A — múltiples ocurrencias ---
+        # Primera mención de "mining strike" negada por "cancelled". Las
+        # posteriores son activas y reales. Pre-fix: score atenuado ×0.15.
+        # Post-fix: la mejor ocurrencia no-negada gana → score completo.
+        {
+            "title": "Mining strike resumes at Tenke Fungurume after July truce",
+            "body": (
+                "The mining strike at Tenke Fungurume that was cancelled in July "
+                "has resumed. A new mining strike began this morning in the "
+                "Lualaba province. Workers at Mutanda have joined a new mining strike "
+                "to demand wage revisions tied to the cobalt price spike. Cobalt "
+                "production in the DRC Copperbelt is severely affected and union "
+                "leaders confirm the mining strike will continue indefinitely until "
+                "operators return to the negotiation table. Industry sources in "
+                "Kolwezi describe the situation as the worst labor disruption in "
+                "the cobalt sector this year."
+            ),
+            "url": "https://test.local/article-6-negation-recovery",
+            "pub_date": now,
+            "source_name": "reuters_africa",
+            "lang": "en",
+        },
+        # --- Artículo 7: Fix B — falsos positivos localizados ---
+        # 'coup de grace' (FP figurativo) Y 'military takeover' (real) en el
+        # mismo texto. Pre-fix: el FP anulaba toda la categoría GEO-COUP del
+        # artículo. Post-fix: solo la ocurrencia dentro del patrón FP se descarta.
+        {
+            "title": "DRC president orders military takeover of artisanal cobalt sector",
+            "body": (
+                "The coup de grace for the informal mining sector came when president "
+                "Tshisekedi ordered a sweeping military takeover of irregular sites "
+                "in Lualaba province. The armed conflict that has plagued cobalt "
+                "mining in the DRC Copperbelt entered a new phase as government forces "
+                "moved into Kolwezi and Likasi. A mine attack near Tenke Fungurume was "
+                "repelled this week according to security incident mine reports. "
+                "Industry analysts in Lubumbashi describe the situation as the worst "
+                "security disruption in the cobalt sector in five years, with "
+                "production at multiple sites suspended on security grounds."
+            ),
+            "url": "https://test.local/article-7-fp-localization",
+            "pub_date": now,
+            "source_name": "reuters_africa",
+            "lang": "en",
+        },
+        # --- Artículo 8: Fix C — filtro residual post-multiplicadores ---
+        # "vessel shortage" (LOG-VESSEL, peso 3.0) Reuters (×1.00):
+        #   sin geo específico (×1.0) × LOG-VESSEL (×1.3) = 3.9 → pasa 3.0
+        #   negado (cancelled) ×0.15 = 0.585
+        #   pub_date hace 4 días, LOG-* > 72h ×0.30 = 0.176
+        #   solo geo genérico "africa" ×0.40 = 0.070
+        # Pre-fix C: hit emitido con score 0.07 (ruido en aggregate_scores).
+        # Post-fix C: hit descartado por el segundo umbral (< 1.0).
+        {
+            "title": "Vessel shortage concerns cancelled by African shipping authorities",
+            "body": (
+                "Industry sources have cancelled the vessel shortage warnings "
+                "issued last week regarding cobalt market exports. Africa-wide "
+                "carriers confirm operations across the continent will resume "
+                "as normal in the coming days, with no further vessel shortage "
+                "expected at this stage."
+            ),
+            "url": "https://test.local/article-8-residue-filter",
+            "pub_date": now - timedelta(days=4),
+            "source_name": "reuters_africa",
+            "lang": "en",
+        },
+        # --- Artículo 9: Fix D — negación invierte signo en DEM-SUBSTITUTE ---
+        # "lfp battery" (DEM-SUBSTITUTE, peso -3.0) negado por "not". Mención
+        # de DRC para que el score supere el umbral 1.0 post-fix C:
+        #   3.0 × 1.80 (GEO-01) × 1.5 (DEM-SUBSTITUTE) × 1.00 = 8.10
+        #   negado ×0.15 = 1.215 → pasa el umbral 1.0
+        # Pre-fix D: sign = -1 → -1.215 (señal NEGATIVA incorrecta: "LFP no
+        #   reemplaza cobalto" interpretado como bajada de demanda).
+        # Post-fix D: sign = +1 (weight<0 AND negated) → +1.215 (señal POSITIVA
+        #   correcta para la demanda de cobalto).
+        {
+            "title": "LFP batteries have not replaced cobalt in EV markets, DRC analysts confirm",
+            "body": (
+                "Despite years of speculation, lfp battery technology has not "
+                "displaced cobalt-based chemistries in premium EV segments. "
+                "Industry observers in the DRC Copperbelt confirm that lfp "
+                "battery adoption has not eliminated cobalt requirements. "
+                "Analysts in Kolwezi say lfp battery shift forecasts have not "
+                "materialized at the scale predicted by 2023 reports."
+            ),
+            "url": "https://test.local/article-9-dem-negation-inversion",
+            "pub_date": now,
+            "source_name": "reuters_africa",
+            "lang": "en",
+        },
+    ]
+
+
+# ---------------------------------------------------------------------------
+# Aggregate clustering tests (fix F)
+# ---------------------------------------------------------------------------
+
+def _run_aggregate_clustering_tests(cfg: AssetConfig) -> None:
+    """Tests sintéticos del clustering temporal en aggregate_scores (fix F)."""
+    log.info("--- Tests F: clustering temporal en aggregate_scores ---")
+
+    def _mk_hit(score: float, pub_date: datetime, source: str = "reuters_africa") -> dict:
+        """Hit sintético — todos GEO-01/LAB-STRIKE-ACT."""
+        return {
+            "keyword": "mining strike",
+            "category": "LAB-STRIKE-ACT",
+            "score_bruto": score,
+            "geo_codes": ["GEO-01"],
+            "best_geo": "GEO-01",
+            "pub_date": pub_date,
+            "source_name": source,
+            "url": "test://aggregate",
+            "title": "synthetic",
+            "negated": False,
+        }
+
+    midnight = datetime(2026, 5, 15, 0, 0, tzinfo=timezone.utc)
+
+    # Caso 1: mismo evento cruzando medianoche UTC (30 min)
+    # Pre-fix F: 2 buckets distintos → ssc = 18 + 18*0.5 = 27.0
+    # Post-fix F: 1 cluster → ssc = 18.0
+    ssc, smc = aggregate_scores([
+        _mk_hit(18.0, midnight - timedelta(minutes=20)),
+        _mk_hit(18.0, midnight + timedelta(minutes=10)),
+    ], cfg)
+    log.info("F Caso 1 (mismo evento cruzando medianoche, 30min): SSC=%.2f SMC=%.2f"
+             "  [esperado post-fix: SSC=18.00 — pre-fix habria sido 27.00]", ssc, smc)
+
+    # Caso 2: 2 hits realmente distintos (30h apart) → sin cambio
+    # Ambos pre y post-fix: 2 clusters → ssc = 18 + 18*0.5 = 27.0
+    ssc, smc = aggregate_scores([
+        _mk_hit(18.0, midnight),
+        _mk_hit(18.0, midnight + timedelta(hours=30)),
+    ], cfg)
+    log.info("F Caso 2 (eventos distintos, 30h apart): SSC=%.2f SMC=%.2f"
+             "  [esperado pre y post: SSC=27.00 — sin cambio]", ssc, smc)
+
+    # Caso 3: 3 fuentes high-cred cruzando medianoche → bonus ×1.30
+    # Pre-fix F: 2 buckets, ninguno con 3 fuentes → 27.0
+    # Post-fix F: 1 cluster con 3 fuentes ≥0.80 → bonus → 18 * 1.30 = 23.40
+    ssc, smc = aggregate_scores([
+        _mk_hit(18.0, midnight - timedelta(minutes=30), source="reuters_africa"),  # 1.00
+        _mk_hit(18.0, midnight + timedelta(minutes=30), source="allafrica"),       # 0.85
+        _mk_hit(18.0, midnight + timedelta(hours=2),    source="bbc_africa"),      # 0.90
+    ], cfg)
+    log.info("F Caso 3 (3 fuentes cruzando medianoche, bonus): SSC=%.2f SMC=%.2f"
+             "  [esperado post-fix: SSC=23.40 — pre-fix habria sido 27.00 sin bonus]", ssc, smc)
+
+    # Caso 4: hits mismo tiempo pero distinto geo → siempre 2 clusters
+    h_drc = _mk_hit(18.0, midnight); h_drc["best_geo"] = "GEO-01"
+    h_zam = _mk_hit(18.0, midnight); h_zam["best_geo"] = "GEO-02"
+    ssc, smc = aggregate_scores([h_drc, h_zam], cfg)
+    log.info("F Caso 4 (mismo tiempo, distinto geo): SSC=%.2f SMC=%.2f"
+             "  [esperado: SSC=27.00 — sin cambio, geos distintos = clusters distintos]", ssc, smc)
+
+    log.info("--- FIN tests F ---")
+
+
+# ---------------------------------------------------------------------------
+# Suite completa
+# ---------------------------------------------------------------------------
+
+def run_gemini_test(cfg: AssetConfig, gemini_client=None) -> None:
+    """
+    Modo test: ejecuta los artículos sintéticos a través de score_article y
+    (opcionalmente) Gemini, más los tests directos de aggregate_scores.
+
+    Si `gemini_client` es None, se omite la llamada real a Gemini (útil para
+    iterar sin consumir cuota free tier — equivalente a COBALT_TEST_NO_GEMINI=1).
+    """
+    skip_gemini = gemini_client is None
+    log.info("=== MODO TEST ACTIVADO === (skip_gemini=%s)", skip_gemini)
+    log.info("google-genai disponible: %s | client: %s", is_available(), gemini_client is not None)
+
+    # --- 1. Tests por artículo (cubren fixes A, B, C, D) ---
+    test_articles = build_test_articles()
+    for art in test_articles:
+        hits = score_article(art, cfg)
+        max_s = max((abs(h["score_bruto"]) for h in hits), default=0.0)
+        signed_sum = sum(h["score_bruto"] for h in hits)
+        ctx = count_context_hits(art, cfg.context_trigger_terms)
+        if max_s >= cfg.gemini_score_threshold:
+            path = "A"
+        elif ctx >= cfg.gemini_context_min:
+            path = "B"
+        else:
+            path = "NONE"
+        log.info(
+            "TEST [%s] pre-Gemini : hits=%d, max_score=%.2f, signed_sum=%+.2f, ctx_terms=%d, path=%s",
+            art["title"][:50], len(hits), max_s, signed_sum, ctx, path,
+        )
+
+        if skip_gemini:
+            hits_after = hits  # bypass
+        else:
+            hits_after = analyze_with_gemini(art, hits, cfg, gemini_client)
+        max_after = max((abs(h["score_bruto"]) for h in hits_after), default=0.0)
+        signed_after = sum(h["score_bruto"] for h in hits_after)
+        log.info(
+            "TEST [%s] post-Gemini: hits=%d, max_score=%.2f, signed_sum=%+.2f",
+            art["title"][:50], len(hits_after), max_after, signed_after,
+        )
+
+    # --- 2. Tests directos de aggregate_scores (cubren fix F) ---
+    _run_aggregate_clustering_tests(cfg)
+
+    log.info("=== FIN TEST ===")
+
+
+def is_test_mode_active() -> bool:
+    """True si la env var COBALT_TEST_MODE=1 está presente."""
+    return os.environ.get("COBALT_TEST_MODE") == "1"
+
+
+def is_no_gemini_active() -> bool:
+    """True si la env var COBALT_TEST_NO_GEMINI=1 está presente (omite cuota)."""
+    return os.environ.get("COBALT_TEST_NO_GEMINI") == "1"

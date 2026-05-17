@@ -29,25 +29,33 @@ If they ever contradict, the public Hoja de ruta wins and CLAUDE.md should be up
 | `Hoja de ruta publica.md` (repo root) | ✅ | Strategic roadmap, phases, principles, daily tracking |
 | `Hoja de ruta proyecto.md` (repo root) | ❌ private | Owner's extended local version (career context) |
 | `CLAUDE.md` (this file) | ✅ | Operational guidance for Claude sessions |
-| `archivos codigo/MAPA_SCORER.html` | ✅ | Visual map of `main_scorer.py` structure (open in browser) |
-| `archivos codigo/scoring_rules.md` | ✅ | Spec: category multipliers, SSC/SMC formulas |
-| `archivos codigo/keyword_dictionary.md` | ✅ | Spec: keyword categories and meanings |
-| `archivos codigo/data_sources.md` | ✅ | Spec: RSS sources, credibility modifiers |
-| `archivos codigo/asset_map.md` | ✅ | Spec: asset tickers and event-to-asset rules |
+| `framework/` | ✅ | Generic core: scoring, aggregator, sources, state, llm_validator |
+| `assets/cobalt/dictionary.py` | ✅ | Cobalt-specific data + `COBALT_CONFIG` instance |
+| `assets/cobalt/main.py` | ✅ | Cobalt orchestrator (cron entry point) |
+| `tests/synthetic_articles.py` | ✅ | Regression suite (9 articles + 4 clustering cases) |
+| `legacy/main_scorer.py` | ✅ | Pre-extraction monolith, kept as behavioural reference |
+| `archivos codigo/MAPA_SCORER.html` | ✅ | Visual map of the legacy monolith (open in browser) |
+| `scoring_rules.md` (repo root) | ✅ | Spec: category multipliers, SSC/SMC formulas |
+| `keyword_dictionary.md` (repo root) | ✅ | Spec: keyword categories and meanings |
+| `data_sources.md` (repo root) | ✅ | Spec: RSS sources, credibility modifiers |
+| `asset_map.md` (repo root) | ✅ | Spec: asset tickers and event-to-asset rules |
 
 ## What this project is
 
 A **multi-asset commodity early-warning system in active evolution**. The first implementation (cobalt) is operational and serves as the reference architecture. The project is evolving into a generalizable framework with an LLM analyst layer and paper trading validation — see `Hoja de ruta proyecto.md` for current phase.
 
-The current cobalt-specific system: `main_scorer.py` runs 3×/day, scrapes RSS feeds and web sources, scores each article against a multilingual keyword dictionary, validates ambiguous matches via Gemini API, and fires an HTML email alert when disruption thresholds are exceeded. Designed to run on a GCP e2-micro free-tier instance (1 GB RAM, shared CPU, 10 GB disk).
+The current cobalt-specific system: `assets/cobalt/main.py` runs 3×/day, scrapes RSS feeds and web sources, scores each article against a multilingual keyword dictionary (via the generic `framework/` package), validates ambiguous matches via Gemini API, and fires an HTML email alert when disruption thresholds are exceeded. Designed to run on a GCP e2-micro free-tier instance (1 GB RAM, shared CPU, 10 GB disk).
 
 ## Running the script
 
 ```bash
-python3 main_scorer.py
+python3 -m assets.cobalt.main
 ```
 
-Cron schedule (UTC): `0 0,8,16 * * * /usr/bin/python3 /home/usuario/cobalt-alert/main_scorer.py`
+Cron schedule (UTC): `0 0,8,16 * * * cd /home/usuario/cobalt-alert && /usr/bin/python3 -m assets.cobalt.main`
+
+The legacy monolith (`legacy/main_scorer.py`) is kept as a behavioural reference for the
+extraction — do **not** run it in production; the cron always points at the new entry point.
 
 ## Configuration
 
@@ -115,7 +123,7 @@ Source credibility modifiers: 1.00 (Reuters, official ports) → 0.85 (regional 
 
 ### Spec documents (not code)
 
-The `.md` files are the authoritative specification for the scoring logic — `main_scorer.py` implements them:
+The `.md` files at the repo root are the authoritative specification for the scoring logic — `framework/` + `assets/cobalt/dictionary.py` implement them:
 
 | File | Role |
 |------|------|
@@ -124,7 +132,11 @@ The `.md` files are the authoritative specification for the scoring logic — `m
 | `data_sources.md` | RSS URLs, credibility modifiers, scraping methods, rate limits, source health logic |
 | `asset_map.md` | Secondary asset tickers by impact direction, HTML email template, asset-selection rules by event category |
 
-When modifying scoring behavior, update the relevant `.md` first, then update `main_scorer.py` to match. Version both together.
+When modifying scoring behavior:
+1. Update the relevant `.md` first.
+2. Update `assets/cobalt/dictionary.py` (data) or `framework/*.py` (logic) to match.
+3. Add a synthetic test case in `tests/synthetic_articles.py` if a bug was fixed.
+4. Version all changes together.
 
 ### Testing infrastructure
 
@@ -135,12 +147,12 @@ Two test modes available via env flags:
 
 Default iteration command:
 ```bash
-COBALT_TEST_MODE=1 COBALT_TEST_NO_GEMINI=1 python3 main_scorer.py
+COBALT_TEST_MODE=1 COBALT_TEST_NO_GEMINI=1 python3 -m assets.cobalt.main
 ```
 
 Full validation command (consumes Gemini quota):
 ```bash
-COBALT_TEST_MODE=1 python3 main_scorer.py
+COBALT_TEST_MODE=1 python3 -m assets.cobalt.main
 ```
 
 **When fixing any bug, add a synthetic test article (or aggregate test case) that would have caught it.** The test suite is the permanent regression coverage; never delete cases or skip them silently.
@@ -225,7 +237,7 @@ Example: *"Bajo — solo afecta la rama Path A de Gemini, no toca scoring keywor
 
 **7. Cómo verificar que el fix funciona**
 Comando concreto o procedimiento manual para confirmar que el bug está resuelto y que no aparecieron regresiones. Aprovechar el `COBALT_TEST_MODE=1` cuando aplique.
-Example: *"Ejecutar `COBALT_TEST_MODE=1 python3 main_scorer.py` y verificar que el Path A del artículo 2 (chocolatería) sigue devolviendo NO. Si devuelve YES, el fix introdujo una regresión."*
+Example: *"Ejecutar `COBALT_TEST_MODE=1 python3 -m assets.cobalt.main` y verificar que el Path A del artículo 2 (chocolatería) sigue devolviendo NO. Si devuelve YES, el fix introdujo una regresión."*
 
 **8. Prioridad recomendada**
 Sugerencia de cuándo aplicar el fix relativa a otros pendientes.

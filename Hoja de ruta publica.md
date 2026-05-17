@@ -302,15 +302,15 @@ Ciclo de mejora:
 > Marcar [x] al completar. NO saltarse fases.
 
 ### Fase 1 — Framework librería
-- [ ] Estructura `framework/` y `assets/cobalt/` creadas
-- [ ] `framework/sources.py` extraído
-- [ ] `framework/scoring.py` extraído
-- [ ] `framework/aggregator.py` extraído
-- [ ] `framework/llm_validator.py` extraído
-- [ ] `framework/state.py` extraído
-- [ ] `assets/cobalt/dictionary.py` con todos los keywords y geo
-- [ ] `assets/cobalt/main.py` simplificado a orquestación
-- [ ] Tests sintéticos cobalto siguen pasando 9/9
+- [x] Estructura `framework/` y `assets/cobalt/` creadas
+- [x] `framework/sources.py` extraído
+- [x] `framework/scoring.py` extraído (incluye `AssetConfig` dataclass)
+- [x] `framework/aggregator.py` extraído
+- [x] `framework/llm_validator.py` extraído
+- [x] `framework/state.py` extraído
+- [x] `assets/cobalt/dictionary.py` con todos los keywords y geo
+- [x] `assets/cobalt/main.py` simplificado a orquestación
+- [x] Tests sintéticos cobalto siguen pasando 9/9 (+ 4 casos de clustering)
 - [ ] Cron en VM apunta al nuevo entry point
 
 ### Fase 2 — Cobre
@@ -352,3 +352,4 @@ Ciclo de mejora:
 > Espacio libre para aprendizajes a medida que el proyecto avanza. Datado.
 
 - **2026-05-16**: Auditoría `score_article` completada (6/6 puntos). Tests de regresión cubren todos los fixes. Framework listo para empezar Fase 1.
+- **2026-05-17**: Fase 1 ejecutada. `main_scorer.py` (2256 líneas, monolito) extraído en `framework/` (genérico, ~1037 líneas) + `assets/cobalt/` (datos + orquestador, ~1328 líneas) + `tests/synthetic_articles.py` (~355 líneas). `AssetConfig` dataclass encapsula los parámetros del asset; cada función del framework lo recibe en lugar de leer globals. 9/9 artículos sintéticos + 4/4 clusters pasan con los valores numéricos exactos del monolito (signed_sum=+1.22 para Art 9, SSC=23.40 para F3, etc.). Entry point nuevo: `python -m assets.cobalt.main`. `main_scorer.py` movido a `legacy/` como referencia. Falta sincronizar cron en VM.
