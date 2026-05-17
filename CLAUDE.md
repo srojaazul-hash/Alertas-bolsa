@@ -204,7 +204,7 @@ Practical patterns refined through many sessions. Follow them by default; deviat
 - **Use the "dame explicación Pro" format** for non-trivial fixes (see Trigger phrases below). It forces structured reasoning before applying changes.
 
 ### Commits
-- Maintain `Co-Authored-By: Claude Sonnet 4.6 <noreply@anthropic.com>` on collaborative commits.
+- **Never add `Co-Authored-By: Claude` (or any form of self-coauthorship) to commits or PRs in this project.** Permanent project policy. Applies to every branch, every commit, every push.
 - Commit message in Spanish or English, but consistent within a single message.
 - Body should describe: problem, solution, validation outcome (e.g., "9/9 tests pass, signed_sum=+1.22 confirms expected sign inversion").
 
