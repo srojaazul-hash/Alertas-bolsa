@@ -295,6 +295,63 @@ def _run_aggregate_clustering_tests(cfg: AssetConfig) -> None:
 
 
 # ---------------------------------------------------------------------------
+# Tests del fix DEGRADED-cooldown (source_health)
+# ---------------------------------------------------------------------------
+
+def _run_source_health_tests() -> None:
+    """
+    Tests del fix DEGRADED-cooldown (2026-05-17).
+
+    Antes del fix: una fuente con 3 fallos consecutivos quedaba marcada como
+    DEGRADED para siempre. `fetch_rss` la saltaba en cada run, y el único
+    camino a `OK` era `update_source_health(success=True)` que se llamaba
+    dentro de `fetch_rss` → bloqueo permanente.
+
+    Después del fix: tras 24h del último intento, `is_source_degraded`
+    devuelve False una vez, dando oportunidad a un reintento. Si falla,
+    el cooldown vuelve a contar. Si tiene éxito, la fuente recupera OK.
+    """
+    from framework.state import is_source_degraded, update_source_health
+
+    log.info("--- Tests SH: DEGRADED debe poder reintentarse tras cooldown ---")
+
+    # Caso 1: tres fallos consecutivos marcan DEGRADED, sigue bloqueada
+    state: dict = {"source_health": {}}
+    for _ in range(3):
+        update_source_health(state, "test_src", success=False)
+    blocked = is_source_degraded(state, "test_src")
+    log.info("SH Caso 1 (DEGRADED recién marcado): is_degraded=%s  [esperado: True]", blocked)
+    assert blocked is True, "Caso 1 falló — DEGRADED reciente debería bloquear"
+
+    # Caso 2: backdate last_attempt >24h → cooldown expirado, permite reintento
+    state["source_health"]["test_src"]["last_attempt"] = (
+        datetime.now(timezone.utc) - timedelta(hours=25)
+    ).isoformat()
+    blocked = is_source_degraded(state, "test_src")
+    log.info("SH Caso 2 (DEGRADED >24h, cooldown expirado): is_degraded=%s  [esperado: False]", blocked)
+    assert blocked is False, "Caso 2 falló — DEGRADED >24h debería permitir reintento"
+
+    # Caso 3: tras reintento fallido, el cooldown se reinicia
+    update_source_health(state, "test_src", success=False)
+    blocked = is_source_degraded(state, "test_src")
+    log.info("SH Caso 3 (reintento falla, cooldown reseteado): is_degraded=%s  [esperado: True]", blocked)
+    assert blocked is True, "Caso 3 falló — tras fallo, cooldown debería reiniciarse"
+
+    # Caso 4: tras reintento exitoso, la fuente vuelve a OK
+    state["source_health"]["test_src"]["last_attempt"] = (
+        datetime.now(timezone.utc) - timedelta(hours=25)
+    ).isoformat()
+    update_source_health(state, "test_src", success=True)
+    blocked = is_source_degraded(state, "test_src")
+    status = state["source_health"]["test_src"]["status"]
+    log.info("SH Caso 4 (reintento OK, recuperación): is_degraded=%s status=%s  [esperado: False/OK]", blocked, status)
+    assert blocked is False, "Caso 4 falló — tras éxito debería desbloquear"
+    assert status == "OK", "Caso 4 falló — status debería volver a OK"
+
+    log.info("--- FIN tests SH ---")
+
+
+# ---------------------------------------------------------------------------
 # Suite completa
 # ---------------------------------------------------------------------------
 
@@ -341,6 +398,9 @@ def run_gemini_test(cfg: AssetConfig, gemini_client=None) -> None:
 
     # --- 2. Tests directos de aggregate_scores (cubren fix F) ---
     _run_aggregate_clustering_tests(cfg)
+
+    # --- 3. Tests del fix DEGRADED-cooldown en source_health ---
+    _run_source_health_tests()
 
     log.info("=== FIN TEST ===")
 

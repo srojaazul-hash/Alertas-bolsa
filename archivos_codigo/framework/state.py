@@ -96,13 +96,22 @@ def is_url_processed(state: dict, url: str) -> bool:
 # Source health
 # ---------------------------------------------------------------------------
 
+# Tiempo en horas tras el cual una fuente DEGRADED se reintenta una vez.
+# Si el reintento falla, el cooldown vuelve a empezar. Si tiene éxito, recupera.
+DEGRADED_RETRY_HOURS = 24
+
+
 def update_source_health(state: dict, source_name: str, success: bool) -> None:
     health = state.setdefault("source_health", {})
     entry = health.setdefault(source_name, {"consecutive_failures": 0, "status": "OK"})
+    now_iso = datetime.now(timezone.utc).isoformat()
+    # last_attempt se actualiza en cada intento (éxito o fallo) para que el
+    # cooldown del reintento cuente desde la última prueba real.
+    entry["last_attempt"] = now_iso
     if success:
         entry["consecutive_failures"] = 0
         entry["status"] = "OK"
-        entry["last_success"] = datetime.now(timezone.utc).isoformat()
+        entry["last_success"] = now_iso
     else:
         entry["consecutive_failures"] = entry.get("consecutive_failures", 0) + 1
         if entry["consecutive_failures"] >= 3:
@@ -113,8 +122,39 @@ def update_source_health(state: dict, source_name: str, success: bool) -> None:
             )
 
 
-def is_source_degraded(state: dict, source_name: str) -> bool:
-    return state.get("source_health", {}).get(source_name, {}).get("status") == "DEGRADED"
+def is_source_degraded(
+    state: dict, source_name: str, retry_after_hours: int = DEGRADED_RETRY_HOURS
+) -> bool:
+    """
+    True si la fuente está DEGRADED y aún en cooldown (saltarla en este run).
+
+    Fix histórico (2026-05-17): antes una fuente DEGRADED se saltaba
+    indefinidamente sin posibilidad de recuperación. El único camino al
+    `status = "OK"` era a través de `update_source_health(success=True)`,
+    que solo se llama dentro de `fetch_rss`. Pero `fetch_rss` salta la
+    fuente si está DEGRADED → bloqueo permanente. Una fuente que fallara
+    3 veces (caída temporal, mantenimiento, blip de red) quedaba muerta
+    para siempre hasta intervención manual.
+
+    Ahora, tras `retry_after_hours` desde el último intento, se permite
+    UN reintento. Si vuelve a fallar, otras N horas. Si vuelve OK, la
+    fuente se recupera automáticamente.
+    """
+    entry = state.get("source_health", {}).get(source_name, {})
+    if entry.get("status") != "DEGRADED":
+        return False
+    # Fall back a last_success por compatibilidad con states.json antiguos
+    # que no tenían last_attempt (anterior al fix).
+    last = entry.get("last_attempt") or entry.get("last_success")
+    if not last:
+        return False  # sin marca temporal: permitir reintento conservadoramente
+    try:
+        since = datetime.now(timezone.utc) - datetime.fromisoformat(last)
+        if since > timedelta(hours=retry_after_hours):
+            return False  # cooldown expirado
+    except Exception:
+        return False  # parsing del timestamp falla: no bloquear
+    return True
 
 
 # ---------------------------------------------------------------------------
