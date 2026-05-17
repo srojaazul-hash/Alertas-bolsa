@@ -381,5 +381,5 @@ Este archivo es referenciado por:
 - `keyword_dictionary.md` — usa los códigos de categoría (LOG-PORT, GEO-COUP, etc.)
 - `asset_map.md` — usa los niveles de alerta (NARANJA, ROJO) para mapear activos
 - `data_sources.md` — usa los modificadores de fuente (Sección 5)
-- `framework/scoring.py` + `framework/aggregator.py` — implementan las fórmulas de la Sección 7
-- `assets/cobalt/dictionary.py` — declara los multiplicadores, pesos SSC/SMC y umbrales calibrados para cobalto
+- `archivos_codigo/framework/scoring.py` + `archivos_codigo/framework/aggregator.py` — implementan las fórmulas de la Sección 7
+- `archivos_codigo/assets/cobalt/dictionary.py` — declara los multiplicadores, pesos SSC/SMC y umbrales calibrados para cobalto

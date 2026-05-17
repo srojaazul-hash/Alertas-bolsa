@@ -74,31 +74,33 @@ Sistema **multi-asset de alerta temprana sobre materias primas** con capa de ana
 
 **Por qué primero**: construir el segundo asset sin esta extracción genera dos copias divergentes del scorer en un mes.
 
-**Estructura objetivo**:
+**Estructura objetivo** (todo bajo `archivos_codigo/`):
 ```
-project/
+archivos_codigo/
 ├── framework/
 │   ├── sources.py       # clase base RSSFetcher, ScrapingFetcher, APIFetcher
-│   ├── scoring.py       # score_article(article, dictionary) genérico
+│   ├── scoring.py       # score_article(article, cfg) genérico + AssetConfig
 │   ├── aggregator.py    # aggregate_scores con clustering temporal
 │   ├── llm_validator.py # capa Gemini (Path A / Path B / dispatcher)
 │   └── state.py         # load_state, save_state, dedup, source_health
 ├── assets/
 │   ├── cobalt/
-│   │   ├── dictionary.py    # KEYWORDS, GEO_TERMS, multipliers…
-│   │   ├── sources.yaml     # URLs RSS específicas
+│   │   ├── dictionary.py    # KEYWORDS, GEO_TERMS, multipliers + COBALT_CONFIG
 │   │   └── main.py          # orquestador (cron point)
 │   └── copper/              # se añade en FASE 2
-└── tests/
-    └── synthetic_articles.py  # los 9 + nuevos
+├── tests/
+│   └── synthetic_articles.py  # los 9 + casos de clustering
+├── legacy/
+│   └── main_scorer.py        # monolito pre-extracción (referencia)
+└── MAPA_SCORER.html / .md    # mapa visual del monolito legacy
 ```
 
 **Tareas concretas**:
-- [ ] Crear estructura `framework/` y `assets/cobalt/`
+- [ ] Crear estructura `archivos_codigo/framework/` y `archivos_codigo/assets/cobalt/`
 - [ ] Extraer cada función genérica al módulo correspondiente
-- [ ] Mover todo lo cobalto-específico a `assets/cobalt/dictionary.py`
-- [ ] `assets/cobalt/main.py` solo importa del framework y del dictionary; cero lógica propia
-- [ ] Ejecutar `COBALT_TEST_MODE=1 COBALT_TEST_NO_GEMINI=1 python -m assets.cobalt.main` → 9/9 tests pasan
+- [ ] Mover todo lo cobalto-específico a `archivos_codigo/assets/cobalt/dictionary.py`
+- [ ] `archivos_codigo/assets/cobalt/main.py` solo importa del framework y del dictionary; cero lógica propia
+- [ ] Ejecutar desde `archivos_codigo/`: `COBALT_TEST_MODE=1 COBALT_TEST_NO_GEMINI=1 python -m assets.cobalt.main` → 9/9 tests pasan
 - [ ] Cron en VM apunta al nuevo entry point
 
 **Criterio de éxito**: añadir un asset nuevo cuesta < 1 día de trabajo (solo escribir su diccionario y URLs).
@@ -302,14 +304,14 @@ Ciclo de mejora:
 > Marcar [x] al completar. NO saltarse fases.
 
 ### Fase 1 — Framework librería
-- [x] Estructura `framework/` y `assets/cobalt/` creadas
-- [x] `framework/sources.py` extraído
-- [x] `framework/scoring.py` extraído (incluye `AssetConfig` dataclass)
-- [x] `framework/aggregator.py` extraído
-- [x] `framework/llm_validator.py` extraído
-- [x] `framework/state.py` extraído
-- [x] `assets/cobalt/dictionary.py` con todos los keywords y geo
-- [x] `assets/cobalt/main.py` simplificado a orquestación
+- [x] Estructura `archivos_codigo/framework/` y `archivos_codigo/assets/cobalt/` creadas
+- [x] `archivos_codigo/framework/sources.py` extraído
+- [x] `archivos_codigo/framework/scoring.py` extraído (incluye `AssetConfig` dataclass)
+- [x] `archivos_codigo/framework/aggregator.py` extraído
+- [x] `archivos_codigo/framework/llm_validator.py` extraído
+- [x] `archivos_codigo/framework/state.py` extraído
+- [x] `archivos_codigo/assets/cobalt/dictionary.py` con todos los keywords y geo
+- [x] `archivos_codigo/assets/cobalt/main.py` simplificado a orquestación
 - [x] Tests sintéticos cobalto siguen pasando 9/9 (+ 4 casos de clustering)
 - [ ] Cron en VM apunta al nuevo entry point
 
@@ -352,4 +354,4 @@ Ciclo de mejora:
 > Espacio libre para aprendizajes a medida que el proyecto avanza. Datado.
 
 - **2026-05-16**: Auditoría `score_article` completada (6/6 puntos). Tests de regresión cubren todos los fixes. Framework listo para empezar Fase 1.
-- **2026-05-17**: Fase 1 ejecutada. `main_scorer.py` (2256 líneas, monolito) extraído en `framework/` (genérico, ~1037 líneas) + `assets/cobalt/` (datos + orquestador, ~1328 líneas) + `tests/synthetic_articles.py` (~355 líneas). `AssetConfig` dataclass encapsula los parámetros del asset; cada función del framework lo recibe en lugar de leer globals. 9/9 artículos sintéticos + 4/4 clusters pasan con los valores numéricos exactos del monolito (signed_sum=+1.22 para Art 9, SSC=23.40 para F3, etc.). Entry point nuevo: `python -m assets.cobalt.main`. `main_scorer.py` movido a `legacy/` como referencia. Falta sincronizar cron en VM.
+- **2026-05-17**: Fase 1 ejecutada. `main_scorer.py` (2256 líneas, monolito) extraído en `archivos_codigo/framework/` (genérico, ~1037 líneas) + `archivos_codigo/assets/cobalt/` (datos + orquestador, ~1328 líneas) + `archivos_codigo/tests/synthetic_articles.py` (~355 líneas). `AssetConfig` dataclass encapsula los parámetros del asset; cada función del framework lo recibe en lugar de leer globals. 9/9 artículos sintéticos + 4/4 clusters pasan con los valores numéricos exactos del monolito (signed_sum=+1.22 para Art 9, SSC=23.40 para F3, etc.). Entry point nuevo: desde `archivos_codigo/`, `python -m assets.cobalt.main`. La carpeta original `archivos codigo` renombrada a `archivos_codigo` (sin espacio) para que sea un identificador Python válido; todo el código nuevo consolidado dentro. `main_scorer.py` movido a `archivos_codigo/legacy/` como referencia. Falta sincronizar cron en VM.
