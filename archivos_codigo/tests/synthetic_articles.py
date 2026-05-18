@@ -509,6 +509,97 @@ def _run_gnews_tests() -> None:
 
 
 # ---------------------------------------------------------------------------
+# Tests de URL normalization (UN)
+# ---------------------------------------------------------------------------
+
+def _run_url_normalization_tests() -> None:
+    """
+    Tests de _normalize_url y backwards-compat de is_url_processed (2026-05-17).
+
+    Fix histórico: el dedup cross-run usaba URL exact match. El mismo artículo
+    podía llegar desde dos APIs distintas con URLs ligeramente distintas
+    (?utm_source=, prefijo www., trailing slash) y ser tratado como artículos
+    independientes. En aggregate_scores se contaba dos veces (best + 0.5*sec),
+    inflando el cluster hasta 50%.
+
+    Tras este fix, todas las variaciones triviales colapsan al mismo URL
+    canónico antes de cualquier comparación.
+    """
+    from framework.state import _normalize_url, mark_url_processed, is_url_processed
+
+    log.info("--- Tests UN: URL normalization para dedup estable cross-run ---")
+
+    # Caso 1: URL vacía e URLs no-HTTP se mantienen sin cambios
+    assert _normalize_url("") == ""
+    assert _normalize_url("acled://data_id_123") == "acled://data_id_123"
+    assert _normalize_url("test://aggregate") == "test://aggregate"
+    log.info("UN Caso 1 (empty + non-HTTP intactos): ✓")
+
+    # Caso 2: strip de query string
+    assert _normalize_url("https://reuters.com/article?utm_source=newsapi") == "https://reuters.com/article"
+    assert _normalize_url("https://reuters.com/article?a=1&b=2") == "https://reuters.com/article"
+    log.info("UN Caso 2 (query string strip): ✓")
+
+    # Caso 3: strip de fragment
+    assert _normalize_url("https://reuters.com/article#section-1") == "https://reuters.com/article"
+    log.info("UN Caso 3 (fragment strip): ✓")
+
+    # Caso 4: strip de trailing slash
+    assert _normalize_url("https://reuters.com/article/") == "https://reuters.com/article"
+    assert _normalize_url("https://reuters.com/") == "https://reuters.com"
+    log.info("UN Caso 4 (trailing slash strip): ✓")
+
+    # Caso 5: strip de prefijo www.
+    assert _normalize_url("https://www.reuters.com/article") == "https://reuters.com/article"
+    log.info("UN Caso 5 (www. prefix strip): ✓")
+
+    # Caso 6: scheme y host lowercase, path case-sensitive preservado
+    assert _normalize_url("HTTPS://Reuters.COM/Article/X") == "https://reuters.com/Article/X"
+    log.info("UN Caso 6 (scheme+host lower, path preservado): ✓")
+
+    # Caso 7: combinación de todas las normalizaciones
+    raw = "HTTPS://Www.Reuters.com/Article/X/?utm_source=foo&ref=feed#section"
+    expected = "https://reuters.com/Article/X"
+    got = _normalize_url(raw)
+    assert got == expected, f"UN Caso 7 falló: esperado={expected!r} got={got!r}"
+    log.info("UN Caso 7 (combinación completa): ✓")
+
+    # Caso 8: mismo artículo con variaciones URL → dedup match cross-API
+    # Escenario: GNews día 1 trae artículo con URL "limpia"; NewsAPI día 2
+    # lo trae con UTM tracking y prefijo www.
+    state: dict = {"source_health": {}, "processed_urls": []}
+    mark_url_processed(state, "https://reuters.com/cobalt-drc-strike")
+    assert is_url_processed(state, "https://www.reuters.com/cobalt-drc-strike/"), (
+        "UN Caso 8 falló: variación www+slash no detectada"
+    )
+    assert is_url_processed(state, "https://reuters.com/cobalt-drc-strike?utm_source=newsapi"), (
+        "UN Caso 8 falló: variación utm_source no detectada"
+    )
+    assert is_url_processed(state, "https://reuters.com/cobalt-drc-strike#breaking"), (
+        "UN Caso 8 falló: variación fragment no detectada"
+    )
+    log.info("UN Caso 8 (dedup cross-variation API): ✓")
+
+    # Caso 9: backwards-compat con state.json viejo (URLs sin normalizar)
+    # Las entradas históricas en producción están guardadas con su URL original.
+    # is_url_processed debe normalizar ambos lados para que matcheen.
+    state2: dict = {
+        "source_health": {},
+        "processed_urls": [
+            # Entry "vieja" como podría existir en state.json pre-fix
+            {"url": "https://www.example.com/old-article?ref=feed",
+             "ts": "2026-05-15T00:00:00+00:00"},
+        ],
+    }
+    assert is_url_processed(state2, "https://example.com/old-article"), (
+        "UN Caso 9 falló: backwards-compat con state.json viejo no funciona"
+    )
+    log.info("UN Caso 9 (backwards-compat state.json viejo): ✓")
+
+    log.info("--- FIN tests UN ---")
+
+
+# ---------------------------------------------------------------------------
 # Suite completa
 # ---------------------------------------------------------------------------
 
@@ -564,6 +655,9 @@ def run_gemini_test(cfg: AssetConfig, gemini_client=None) -> None:
 
     # --- 5. Tests del fetcher de GNews.io ---
     _run_gnews_tests()
+
+    # --- 6. Tests de URL normalization ---
+    _run_url_normalization_tests()
 
     log.info("=== FIN TEST ===")
 

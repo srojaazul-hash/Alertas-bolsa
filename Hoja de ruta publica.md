@@ -138,6 +138,7 @@ archivos_codigo/
 - [ ] Añadir 5-10 fuentes nuevas al config con credibilidad calibrada
 - [ ] Test de salud automático: añadir log de "fuentes muertas hoy" en cada run del cron, con umbral de aviso si >30% del config falla
 - [ ] Considerar implementación de `framework/sources.py` opcional con TLS fingerprint de browser (`curl_cffi` o equivalente) para feeds que filtran por TLS
+- [ ] **Dedup robusto cross-run con title similarity** (anotado 2026-05-17). La URL normalization añadida cubre variaciones triviales (utm tags, prefijo `www.`, trailing slash, query/fragment). Pero NO cubre el caso de "mismo contenido republicado en otro dominio" — Reuters→Yahoo Finance→MSN con URLs completamente distintas pero artículo equivalente. Para ese caso implementar matching por similitud de título contra `processed_urls`. Requiere extender el schema de `processed_urls` en `state.json` para guardar también el title (backwards-compat: entradas sin title se siguen tratando como hoy). Complejidad: media. Beneficio: incierto hasta tener 1-2 semanas de datos del cron real — si vemos que la duplicación cross-domain ocurre con frecuencia, justifica el esfuerzo; si no, queda en backlog.
 
 **Criterio de éxito**: 
 - ≥3 fuentes cobalto-específicas activas entregando ≥10 artículos cobalto-relevantes/semana en agregado

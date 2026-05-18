@@ -72,6 +72,62 @@ def save_state(state: dict, state_file: Path) -> None:
 # URLs procesadas (anti-duplicado entre runs)
 # ---------------------------------------------------------------------------
 
+def _normalize_url(url: str) -> str:
+    """
+    Normaliza una URL para dedup estable cross-run.
+
+    Aplica:
+      - Strip de query string (?utm_source=..., ?ref=feed, etc.)
+      - Strip de fragment (#section)
+      - Strip de trailing slash
+      - Lowercase del scheme y host
+      - Strip de prefijo "www."
+
+    Mantiene tal cual:
+      - URLs no-HTTP (e.g., "acled://12345", "test://aggregate")
+      - Cadenas vacías
+      - Case del path (las rutas URL son case-sensitive por estándar)
+
+    Justificación (audit 2026-05-17): el mismo artículo puede llegar al sistema
+    desde diferentes APIs con URLs ligeramente distintas — `?utm_source=`,
+    prefijo `www.`, trailing slash inconsistente, etc. Sin normalización,
+    `is_url_processed` no detecta el duplicado, el artículo se scorea dos
+    veces, y aggregate_scores infla el cluster hasta 50% (best + 0.5*secondary).
+    """
+    if not url:
+        return url
+    # Solo normalizamos esquemas HTTP/HTTPS. URLs internas como "acled://..."
+    # se mantienen exactas para no romper su dedup.
+    url_lower_check = url.lower()
+    if not (url_lower_check.startswith("http://") or url_lower_check.startswith("https://")):
+        return url
+
+    # Strip query y fragment (orden no importa, cualquiera puede aparecer primero)
+    url = url.split("?", 1)[0].split("#", 1)[0]
+    # Strip trailing slash (rstrip elimina todos los slashes finales)
+    url = url.rstrip("/")
+
+    # Parse scheme://host/path
+    try:
+        scheme, rest = url.split("://", 1)
+        scheme = scheme.lower()
+        if "/" in rest:
+            host, path = rest.split("/", 1)
+            path = "/" + path
+        else:
+            host = rest
+            path = ""
+        host = host.lower()
+        # Strip prefijo www.
+        if host.startswith("www."):
+            host = host[4:]
+        return f"{scheme}://{host}{path}"
+    except (ValueError, IndexError):
+        # Fallback defensivo: si el parse falla, devolver la URL truncada
+        # (sin query/fragment/trailing slash) sin perder el dedup parcial.
+        return url
+
+
 def purge_old_urls(state: dict, hours: int = 72) -> None:
     """Elimina URLs procesadas con más de `hours` horas de antigüedad."""
     cutoff = datetime.now(timezone.utc) - timedelta(hours=hours)
@@ -83,13 +139,26 @@ def purge_old_urls(state: dict, hours: int = 72) -> None:
 
 
 def mark_url_processed(state: dict, url: str) -> None:
+    """Marca URL como procesada usando la versión normalizada para dedup estable."""
     state.setdefault("processed_urls", []).append(
-        {"url": url, "ts": datetime.now(timezone.utc).isoformat()}
+        {"url": _normalize_url(url), "ts": datetime.now(timezone.utc).isoformat()}
     )
 
 
 def is_url_processed(state: dict, url: str) -> bool:
-    return any(e["url"] == url for e in state.get("processed_urls", []))
+    """
+    Comprueba si una URL ya fue procesada en runs previos.
+
+    Backwards-compat: las URLs guardadas en `state.json` previo a este fix
+    se almacenaron sin normalizar. No las reescribimos (perdería timestamps
+    útiles). En su lugar, normalizamos ambos lados en cada comparación.
+    Coste: O(N) normalizaciones por llamada — para N~300 URLs, despreciable.
+    """
+    norm_target = _normalize_url(url)
+    for entry in state.get("processed_urls", []):
+        if _normalize_url(entry.get("url", "")) == norm_target:
+            return True
+    return False
 
 
 # ---------------------------------------------------------------------------
