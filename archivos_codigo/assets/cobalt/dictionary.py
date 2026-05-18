@@ -536,13 +536,19 @@ KEYWORDS = [
 # 6. FUENTES — credibilidad + RSS + scraping
 # ---------------------------------------------------------------------------
 
+# Audit 2026-05-17: las antiguas "reuters_*" nunca apuntaron a Reuters real:
+# los URLs eran northernminer.com, africanews.com y rfi.fr/en/rss. Renombradas
+# para que el nombre refleje el host real y bajada la credibilidad de 1.00 a
+# un rango realista (era un sobrepeso falso que contaminaba el bonus multifuente).
 SOURCE_CREDIBILITY = {
-    "reuters_africa":     1.00,
-    "reuters_commodities":1.00,
-    "reuters_china":      1.00,
-    "mining_com_cobalt":  1.00,
+    # Tier 1 — generales internacionales (renombradas en audit 2026-05-17)
+    "northern_miner":     0.85,   # antes "reuters_africa" → northernminer.com
+    "africanews_general": 0.75,   # antes "reuters_commodities" → africanews.com
+    "rfi_english_world":  0.85,   # antes "reuters_china" → rfi.fr/en/rss
+    # Placeholders no usados actualmente — se conservan por si vuelven al config
     "mining_com_general": 1.00,
     "ap_news":            1.00,
+    # African regional / general
     "allafrica":          0.85,
     "bbc_africa":         0.90,
     "miningmx":           0.90,
@@ -564,30 +570,29 @@ SOURCE_CREDIBILITY = {
     # GEO-11 (Refino europeo)
     "yle_news_en":        0.90,
     "energy_storage_news":0.85,
-    # Google News (agregador)
-    "gnews_cobalt_en":    0.50,
-    "gnews_cobalt_fr":    0.50,
-    "gnews_drc":          0.50,
-    "gnews_durban":       0.50,
+    # Google News (agregador). Audit 2026-05-17: 5 de 6 búsquedas devuelven 0
+    # artículos consistentemente (Google ha restringido el RSS de Google News
+    # desde 2024). Eliminadas del config. Solo sobrevive indonesia_nickel.
     "gnews_indonesia_nickel": 0.50,
-    "gnews_europe_refining":  0.50,
 }
 
 RSS_SOURCES = [
-    # --- Tier 1 ---
-    {"name": "reuters_africa",
+    # --- Tier 1 — generales internacionales ---
+    # Audit 2026-05-17: estos tres nombres eran engañosos. No son Reuters.
+    # Renombrados para reflejar el host real; credibilidad corregida en SOURCE_CREDIBILITY.
+    {"name": "northern_miner",
      "url":  "https://www.northernminer.com/feed/",
      "lang": "en", "full_text": True, "rate_limit": 30, "timeout": 10},
-    {"name": "reuters_commodities",
+    {"name": "africanews_general",
      "url":  "https://www.africanews.com/feed/",
      "lang": "en", "full_text": True, "rate_limit": 30, "timeout": 10},
-    {"name": "reuters_china",
+    {"name": "rfi_english_world",
      "url":  "https://www.rfi.fr/en/rss",
      "lang": "en", "full_text": True, "rate_limit": 30, "timeout": 10},
     # --- Mining specialized ---
-    {"name": "mining_com_cobalt",
-     "url":  "https://www.mining.com/web/tag/cobalt/feed/",
-     "lang": "en", "full_text": False, "rate_limit": 60, "timeout": 15},
+    # mining_com_cobalt eliminada en audit 2026-05-17: AWS WAF de mining.com
+    # bloquea con HTTP 403 toda la IP de GCP (homepage incluida). No recuperable
+    # client-side. Reemplazo pendiente en Fase 1.5 (roadmap).
     {"name": "kitco",
      "url":  "https://im-mining.com/feed/",
      "lang": "en", "full_text": False, "rate_limit": 45, "timeout": 10},
@@ -638,23 +643,12 @@ RSS_SOURCES = [
      "url":  "https://www.energy-storage.news/feed/",
      "lang": "en", "full_text": False, "rate_limit": 90, "timeout": 15},
     # --- Google News ---
-    {"name": "gnews_cobalt_en",
-     "url":  "https://news.google.com/rss/search?q=cobalt+supply+disruption&hl=en-US&gl=US&ceid=US:en",
-     "lang": "en", "full_text": False, "rate_limit": 300, "timeout": 10},
-    {"name": "gnews_cobalt_fr",
-     "url":  "https://news.google.com/rss/search?q=cobalt+greve+mine+RDC&hl=fr-FR&gl=FR&ceid=FR:fr",
-     "lang": "fr", "full_text": False, "rate_limit": 300, "timeout": 10},
-    {"name": "gnews_drc",
-     "url":  "https://news.google.com/rss/search?q=DRC+cobalt+mine&hl=en-US&gl=US&ceid=US:en",
-     "lang": "en", "full_text": False, "rate_limit": 300, "timeout": 10},
-    {"name": "gnews_durban",
-     "url":  "https://news.google.com/rss/search?q=Durban+port+strike+disruption&hl=en-US&gl=US&ceid=US:en",
-     "lang": "en", "full_text": False, "rate_limit": 300, "timeout": 10},
+    # Audit 2026-05-17: 5 de 6 búsquedas devuelven 0 artículos consistentemente
+    # (gnews_cobalt_en, gnews_cobalt_fr, gnews_drc, gnews_durban, gnews_europe_refining).
+    # Google ha estado restringiendo el RSS de Google News progresivamente desde
+    # 2024. Eliminadas del config. Solo se conserva la que sí entrega contenido.
     {"name": "gnews_indonesia_nickel",
      "url":  "https://news.google.com/rss/search?q=Indonesia+nickel+cobalt+HPAL+disruption&hl=en-US&gl=US&ceid=US:en",
-     "lang": "en", "full_text": False, "rate_limit": 300, "timeout": 10},
-    {"name": "gnews_europe_refining",
-     "url":  "https://news.google.com/rss/search?q=Umicore+OR+Glencore+Nikkelverk+OR+Terrafame+cobalt&hl=en-US&gl=US&ceid=US:en",
      "lang": "en", "full_text": False, "rate_limit": 300, "timeout": 10},
 ]
 

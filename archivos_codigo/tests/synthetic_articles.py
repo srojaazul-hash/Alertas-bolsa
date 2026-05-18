@@ -57,7 +57,7 @@ def build_test_articles() -> list:
             ),
             "url": "https://test.local/article-1-drc-conflict",
             "pub_date": now,
-            "source_name": "reuters_africa",
+            "source_name": "northern_miner",
             "lang": "en",
         },
         # --- Artículo 2: Path A NO esperado (falso positivo) ---
@@ -96,7 +96,7 @@ def build_test_articles() -> list:
             ),
             "url": "https://test.local/article-3-china-feedstock",
             "pub_date": now,
-            "source_name": "mining_com_cobalt",
+            "source_name": "mining_technology",  # ex-mining_com_cobalt (eliminada en audit 2026-05-17)
             "lang": "en",
         },
         # --- Artículo 4: Path B x0.0 esperado (semiconductores) ---
@@ -155,7 +155,7 @@ def build_test_articles() -> list:
             ),
             "url": "https://test.local/article-6-negation-recovery",
             "pub_date": now,
-            "source_name": "reuters_africa",
+            "source_name": "northern_miner",
             "lang": "en",
         },
         # --- Artículo 7: Fix B — falsos positivos localizados ---
@@ -177,16 +177,16 @@ def build_test_articles() -> list:
             ),
             "url": "https://test.local/article-7-fp-localization",
             "pub_date": now,
-            "source_name": "reuters_africa",
+            "source_name": "northern_miner",
             "lang": "en",
         },
         # --- Artículo 8: Fix C — filtro residual post-multiplicadores ---
-        # "vessel shortage" (LOG-VESSEL, peso 3.0) Reuters (×1.00):
-        #   sin geo específico (×1.0) × LOG-VESSEL (×1.3) = 3.9 → pasa 3.0
-        #   negado (cancelled) ×0.15 = 0.585
-        #   pub_date hace 4 días, LOG-* > 72h ×0.30 = 0.176
-        #   solo geo genérico "africa" ×0.40 = 0.070
-        # Pre-fix C: hit emitido con score 0.07 (ruido en aggregate_scores).
+        # "vessel shortage" (LOG-VESSEL, peso 3.0) en northern_miner (cred 0.85):
+        #   sin geo específico (×1.0) × LOG-VESSEL (×1.3) × 0.85 = 3.315 → pasa 3.0
+        #   negado (cancelled) ×0.15 = 0.497
+        #   pub_date hace 4 días, LOG-* > 72h ×0.30 = 0.149
+        #   solo geo genérico "africa" ×0.40 = 0.060
+        # Pre-fix C: hit emitido con score 0.06 (ruido en aggregate_scores).
         # Post-fix C: hit descartado por el segundo umbral (< 1.0).
         {
             "title": "Vessel shortage concerns cancelled by African shipping authorities",
@@ -199,7 +199,7 @@ def build_test_articles() -> list:
             ),
             "url": "https://test.local/article-8-residue-filter",
             "pub_date": now - timedelta(days=4),
-            "source_name": "reuters_africa",
+            "source_name": "northern_miner",
             "lang": "en",
         },
         # --- Artículo 9: Fix D — negación invierte signo en DEM-SUBSTITUTE ---
@@ -211,6 +211,11 @@ def build_test_articles() -> list:
         #   reemplaza cobalto" interpretado como bajada de demanda).
         # Post-fix D: sign = +1 (weight<0 AND negated) → +1.215 (señal POSITIVA
         #   correcta para la demanda de cobalto).
+        # NB: este test está calibrado al filo del umbral 1.0. Necesita una
+        # fuente con credibilidad=1.00 para que el cálculo de arriba se
+        # mantenga (con cred=0.85 el hit cae bajo el umbral y desaparece).
+        # Se usa `gdacs` (cred 1.00) por estabilidad — el source_name es
+        # incidental al test, lo que importa es la rama del scoring.
         {
             "title": "LFP batteries have not replaced cobalt in EV markets, DRC analysts confirm",
             "body": (
@@ -223,7 +228,7 @@ def build_test_articles() -> list:
             ),
             "url": "https://test.local/article-9-dem-negation-inversion",
             "pub_date": now,
-            "source_name": "reuters_africa",
+            "source_name": "gdacs",
             "lang": "en",
         },
     ]
@@ -237,7 +242,7 @@ def _run_aggregate_clustering_tests(cfg: AssetConfig) -> None:
     """Tests sintéticos del clustering temporal en aggregate_scores (fix F)."""
     log.info("--- Tests F: clustering temporal en aggregate_scores ---")
 
-    def _mk_hit(score: float, pub_date: datetime, source: str = "reuters_africa") -> dict:
+    def _mk_hit(score: float, pub_date: datetime, source: str = "northern_miner") -> dict:
         """Hit sintético — todos GEO-01/LAB-STRIKE-ACT."""
         return {
             "keyword": "mining strike",
@@ -277,7 +282,7 @@ def _run_aggregate_clustering_tests(cfg: AssetConfig) -> None:
     # Pre-fix F: 2 buckets, ninguno con 3 fuentes → 27.0
     # Post-fix F: 1 cluster con 3 fuentes ≥0.80 → bonus → 18 * 1.30 = 23.40
     ssc, smc = aggregate_scores([
-        _mk_hit(18.0, midnight - timedelta(minutes=30), source="reuters_africa"),  # 1.00
+        _mk_hit(18.0, midnight - timedelta(minutes=30), source="northern_miner"),  # 0.85
         _mk_hit(18.0, midnight + timedelta(minutes=30), source="allafrica"),       # 0.85
         _mk_hit(18.0, midnight + timedelta(hours=2),    source="bbc_africa"),      # 0.90
     ], cfg)
