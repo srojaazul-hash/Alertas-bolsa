@@ -73,21 +73,33 @@ LOG_DIR.mkdir(parents=True, exist_ok=True)
 # 1. LOGGING — raíz (todos los módulos del framework loguean a este logger)
 # ---------------------------------------------------------------------------
 
+# En modo test (COBALT_TEST_MODE=1) NO escribimos al log file de producción —
+# solo consola. Tests sintéticos no deben contaminar el histórico del cron real.
+_IN_TEST_MODE = os.environ.get("COBALT_TEST_MODE") == "1"
+
 root_log = logging.getLogger()
 root_log.setLevel(logging.INFO)
 
-_file_handler = TimedRotatingFileHandler(
-    LOG_FILE, when="midnight", interval=1, backupCount=7, encoding="utf-8"
-)
-_file_handler.setFormatter(
-    logging.Formatter("%(asctime)s %(levelname)-8s %(name)s %(message)s", datefmt="%Y-%m-%dT%H:%M:%SZ")
-)
-_console_handler = logging.StreamHandler()
-_console_handler.setFormatter(logging.Formatter("%(levelname)-8s %(name)s %(message)s"))
-# Evitar handlers duplicados si el módulo se re-importa
 if not root_log.handlers:
-    root_log.addHandler(_file_handler)
+    _console_handler = logging.StreamHandler()
+    _console_handler.setFormatter(logging.Formatter("%(levelname)-8s %(name)s %(message)s"))
     root_log.addHandler(_console_handler)
+
+    if not _IN_TEST_MODE:
+        # Solo en modo producción: añadir el log a archivo rotativo.
+        # `TimedRotatingFileHandler` abre el fichero al instanciarlo, así que
+        # también es importante NO instanciarlo en modo test para no tocar
+        # `scorer.log` ni siquiera para escribir una cabecera.
+        _file_handler = TimedRotatingFileHandler(
+            LOG_FILE, when="midnight", interval=1, backupCount=7, encoding="utf-8"
+        )
+        _file_handler.setFormatter(
+            logging.Formatter(
+                "%(asctime)s %(levelname)-8s %(name)s %(message)s",
+                datefmt="%Y-%m-%dT%H:%M:%SZ",
+            )
+        )
+        root_log.addHandler(_file_handler)
 
 log = logging.getLogger("cobalt_scorer")
 
