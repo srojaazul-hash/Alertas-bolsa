@@ -427,6 +427,25 @@ def _run_newsapi_tests() -> None:
     assert result == [], "NA fail-safe falló: sin queries debería devolver []"
     log.info("NA fail-safe ok: sin queries devuelve []")
 
+    # Caso 4: el flag full_text debe ser opcional (default False)
+    # y respetable cuando se pasa explícitamente. Sin api_key sigue siendo
+    # fail-safe — no debe intentar fetch_url si no llega a iterar artículos.
+    result = fetch_news_api(state, None, "", ["foo"], full_text=True)
+    assert result == [], "NA full_text falló: sin api_key debe bail antes de cualquier fetch"
+    log.info("NA full_text ok: flag respetado, sin api_key sigue siendo fail-safe")
+
+    # Caso 5: el field news_api_full_text existe en AssetConfig con default False.
+    # Esto bloquea regresiones futuras que rompan la API del dataclass.
+    from framework.scoring import AssetConfig
+    import dataclasses
+    fields_by_name = {f.name: f for f in dataclasses.fields(AssetConfig)}
+    assert "news_api_full_text" in fields_by_name, "AssetConfig debe tener news_api_full_text"
+    assert fields_by_name["news_api_full_text"].default is False, (
+        "AssetConfig.news_api_full_text debe ser False por defecto "
+        "(opt-in para evitar cambios de comportamiento accidentales en otros assets)"
+    )
+    log.info("NA AssetConfig.news_api_full_text presente y default=False ✓")
+
     log.info("--- FIN tests NA ---")
 
 

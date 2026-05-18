@@ -267,12 +267,18 @@ def fetch_news_api(
     language: str = "en",
     days_back: int = 2,
     page_size: int = 100,
+    full_text: bool = False,
 ) -> list:
     """
     Fetcher para NewsAPI.org (endpoint /v2/everything).
 
     `queries`: lista de strings de búsqueda Boolean (AND/OR/NOT, "frases literales").
     Cada query gasta 1 request del cuota del API key.
+
+    `full_text`: si True, tras recibir cada artículo se descarga la URL completa
+    para reemplazar el body con el cuerpo del artículo parseado. Mismo patrón
+    que `fetch_rss` con `full_text=True`. Útil porque el free tier de NewsAPI
+    trunca `content` a ~200ch.
 
     Free tier (relevante para nuestro uso):
       - 100 requests/día
@@ -345,8 +351,28 @@ def fetch_news_api(
                 parts = [p for p in (art.get("description"), art.get("content")) if p]
                 body = " ".join(parts)[:8000]
 
+                url = art.get("url", "") or ""
+
+                # Si `full_text` está activo, descargamos la página completa
+                # para superar el truncado de 200ch del free tier. Mismo patrón
+                # que fetch_rss con full_text=True. Skip si ya está procesada
+                # (segundo run sobre la misma URL no rebajan body más).
+                if full_text and url and not is_url_processed(state, url):
+                    time.sleep(1)  # politeness
+                    full_html = fetch_url(session, url, timeout=20)
+                    if full_html:
+                        try:
+                            soup = BeautifulSoup(full_html, "lxml")
+                            for tag in soup(["script", "style", "nav", "footer", "header"]):
+                                tag.decompose()
+                            full_body = soup.get_text(separator=" ", strip=True)[:8000]
+                            if full_body and len(full_body) > len(body):
+                                body = full_body
+                        except Exception as exc:
+                            log.debug("NewsAPI full_text parse error [%s]: %s", url, exc)
+
                 articles_all.append({
-                    "url": art.get("url", "") or "",
+                    "url": url,
                     "title": art.get("title", "") or "",
                     "body": body,
                     "pub_date": pub_date,

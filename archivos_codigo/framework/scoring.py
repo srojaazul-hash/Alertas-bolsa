@@ -87,6 +87,16 @@ class AssetConfig:
     # × 3 runs/día = 9 req/día, muy dentro del límite.
     news_api_queries: list = field(default_factory=list)
 
+    # Si True, tras recibir cada artículo de NewsAPI se descarga la URL completa
+    # para reemplazar el body con el cuerpo del artículo (mismo patrón que
+    # `full_text: True` en RSS_SOURCES). Justificación: el free tier de NewsAPI
+    # trunca `content` a ~200ch, lo que hace que las menciones cobalto en
+    # párrafos posteriores no se vean. Audit forense (2026-05-17) detectó que
+    # 5 de 6 artículos NewsAPI perdían el anchor por este truncado.
+    # Coste: 1 fetch_url extra por artículo retornado + sleep(1) entre cada
+    # uno. Para 6-15 artículos típicos por run = ~10-30s adicionales.
+    news_api_full_text: bool = False
+
 
 # ---------------------------------------------------------------------------
 # Utilidades de texto (sin estado, sin config)

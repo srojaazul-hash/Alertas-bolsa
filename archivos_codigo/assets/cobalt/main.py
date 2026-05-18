@@ -509,8 +509,11 @@ def main() -> None:
 
     # --- NewsAPI.org (queries cobalto-específicas) ---
     # 9 req/día con 3 queries × 3 runs/día. Free tier permite 100/día.
+    # full_text=True descarga la página completa para superar el truncado de
+    # ~200ch del free tier (audit forense 2026-05-17).
     newsapi_articles = fetch_news_api(
-        state, session, NEWSAPI_KEY, COBALT_CONFIG.news_api_queries
+        state, session, NEWSAPI_KEY, COBALT_CONFIG.news_api_queries,
+        full_text=COBALT_CONFIG.news_api_full_text,
     )
     for art in newsapi_articles:
         if not is_duplicate_article(art, seen_this_run, state):

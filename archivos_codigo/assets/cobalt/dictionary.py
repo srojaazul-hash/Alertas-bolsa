@@ -888,4 +888,7 @@ COBALT_CONFIG = AssetConfig(
     gemini_multiplier_prompt=GEMINI_MULTIPLIER_PROMPT,
     no_decay_categories=NO_DECAY_CATEGORIES,
     news_api_queries=NEWS_API_QUERIES,
+    # Activado tras audit forense 2026-05-17: el truncado del free tier perdía
+    # 5 de 6 anchors cobalto. fetch_url completa la página de cada artículo.
+    news_api_full_text=True,
 )
