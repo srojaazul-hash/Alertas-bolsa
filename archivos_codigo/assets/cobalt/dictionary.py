@@ -805,6 +805,30 @@ NEWS_API_QUERIES = [
 ]
 
 # ---------------------------------------------------------------------------
+# GNews.io queries (Fase 1.5+, 2026-05-17)
+# ---------------------------------------------------------------------------
+# Estructura idéntica a NEWS_API_QUERIES — sintaxis Boolean compatible. Las
+# mismas 3 queries vectores. La diferencia operacional con NewsAPI:
+#   - GNews es real-time (sin delay 24h)
+#   - GNews tiene ~60K fuentes vs ~150K de NewsAPI (menos cobertura)
+#   - Mismas 100 req/día free tier
+# Tener ambos APIs activos = 200 req/día efectivos con cobertura complementaria
+# (GNews fresca + NewsAPI más profunda). Los duplicados que devuelven ambos
+# son filtrados por `is_duplicate_article` (URL match).
+# ---------------------------------------------------------------------------
+
+GNEWS_QUERIES = [
+    # Vector 1: cobalto explícito + signals de disrupción/supply
+    '"cobalt" AND (mining OR refining OR supply OR export OR shortage OR price OR strike OR ban OR sanctions)',
+
+    # Vector 2: geografías cobalto-críticas + minería
+    '("Katanga" OR "Kolwezi" OR "Lualaba" OR "DRC mining" OR "Congo mining" OR "Zambia Copperbelt" OR "Sulawesi nickel") AND (strike OR conflict OR export OR ban OR closure OR disruption)',
+
+    # Vector 3: tecnologías sustitutas (DEM-SUBSTITUTE)
+    '("LFP battery" OR "cobalt-free battery" OR "sodium-ion battery" OR "solid state battery") AND (production OR adoption OR breakthrough OR commercial)',
+]
+
+# ---------------------------------------------------------------------------
 # 7. NIVELES (semáforo) — formato [(umbral_max_excluyente, NOMBRE, color), …]
 # ---------------------------------------------------------------------------
 
@@ -891,4 +915,10 @@ COBALT_CONFIG = AssetConfig(
     # Activado tras audit forense 2026-05-17: el truncado del free tier perdía
     # 5 de 6 anchors cobalto. fetch_url completa la página de cada artículo.
     news_api_full_text=True,
+    # GNews.io (Fase 1.5+, 2026-05-17): API complementaria a NewsAPI, real-time
+    # (sin delay de 24h). Mismas queries por simplicidad — dedup filtra los que
+    # coinciden con NewsAPI. full_text=True desde el primer momento (lección
+    # aprendida del truncado del free tier).
+    gnews_queries=GNEWS_QUERIES,
+    gnews_full_text=True,
 )

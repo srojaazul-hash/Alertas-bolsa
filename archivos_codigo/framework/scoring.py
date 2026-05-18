@@ -97,6 +97,20 @@ class AssetConfig:
     # uno. Para 6-15 artículos típicos por run = ~10-30s adicionales.
     news_api_full_text: bool = False
 
+    # GNews.io queries (opcional, complementario a NewsAPI). Si presente y
+    # GNEWS_KEY está configurada, `fetch_gnews()` se invoca con estas queries.
+    # Diferencia principal vs NewsAPI: GNews es **real-time** (sin delay de
+    # 24h del free tier de NewsAPI). Misma sintaxis Boolean, mismas 100 req/día.
+    # Tener ambos APIs activos da 200 req/día efectivos y combina:
+    # - GNews: cobertura fresca (últimas 24h)
+    # - NewsAPI: cobertura 24-48h pero ~150K fuentes (vs ~60K de GNews)
+    gnews_queries: list = field(default_factory=list)
+
+    # Análogo a news_api_full_text. GNews free tier trunca `content` a ~250ch,
+    # el mismo problema que NewsAPI. Activarlo recupera anchors enterrados en
+    # el cuerpo del artículo. Coste: ~10-30s adicionales por run.
+    gnews_full_text: bool = False
+
 
 # ---------------------------------------------------------------------------
 # Utilidades de texto (sin estado, sin config)

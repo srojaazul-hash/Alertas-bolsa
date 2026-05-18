@@ -450,6 +450,65 @@ def _run_newsapi_tests() -> None:
 
 
 # ---------------------------------------------------------------------------
+# Tests del fetcher de GNews.io (GN)
+# ---------------------------------------------------------------------------
+
+def _run_gnews_tests() -> None:
+    """
+    Tests del fetcher de GNews (2026-05-17).
+
+    Análogos a los tests de NewsAPI. No prueba la API en sí (requiere key + red).
+    Prueba:
+      1. fetch_gnews fail-safe sin api_key / sin queries
+      2. fetch_gnews respeta el flag full_text incluso cuando bails out
+      3. AssetConfig tiene gnews_queries (default []) y gnews_full_text (default False)
+
+    El helper `_normalize_source_name` ya está cubierto por los tests NA
+    porque GNews lo reutiliza con la misma normalización.
+    """
+    from framework.scoring import AssetConfig
+    from framework.sources import fetch_gnews
+    import dataclasses
+
+    log.info("--- Tests GN: GNews.io fail-safe y AssetConfig fields ---")
+
+    # Caso 1: fail-safe sin api_key
+    state: dict = {"source_health": {}}
+    result = fetch_gnews(state, None, "", ["foo"])
+    assert result == [], "GN fail-safe falló: sin api_key debería devolver []"
+    log.info("GN fail-safe ok: sin api_key devuelve []")
+
+    # Caso 2: fail-safe sin queries
+    result = fetch_gnews(state, None, "fake_key", [])
+    assert result == [], "GN fail-safe falló: sin queries debería devolver []"
+    log.info("GN fail-safe ok: sin queries devuelve []")
+
+    # Caso 3: el flag full_text es respetado y no rompe el fail-safe
+    result = fetch_gnews(state, None, "", ["foo"], full_text=True)
+    assert result == [], "GN full_text falló: sin api_key debe bail antes de cualquier fetch"
+    log.info("GN full_text ok: flag respetado, sin api_key sigue siendo fail-safe")
+
+    # Caso 4: AssetConfig tiene gnews_queries con default []
+    fields_by_name = {f.name: f for f in dataclasses.fields(AssetConfig)}
+    assert "gnews_queries" in fields_by_name, "AssetConfig debe tener gnews_queries"
+    # default_factory=list, así que verificamos la default_factory
+    default_factory = fields_by_name["gnews_queries"].default_factory
+    assert default_factory is not dataclasses.MISSING and default_factory() == [], (
+        "AssetConfig.gnews_queries debe tener default_factory=list (lista vacia)"
+    )
+    log.info("GN AssetConfig.gnews_queries presente con default_factory=list ✓")
+
+    # Caso 5: AssetConfig tiene gnews_full_text con default False
+    assert "gnews_full_text" in fields_by_name, "AssetConfig debe tener gnews_full_text"
+    assert fields_by_name["gnews_full_text"].default is False, (
+        "AssetConfig.gnews_full_text debe ser False por defecto (opt-in)"
+    )
+    log.info("GN AssetConfig.gnews_full_text presente y default=False ✓")
+
+    log.info("--- FIN tests GN ---")
+
+
+# ---------------------------------------------------------------------------
 # Suite completa
 # ---------------------------------------------------------------------------
 
@@ -502,6 +561,9 @@ def run_gemini_test(cfg: AssetConfig, gemini_client=None) -> None:
 
     # --- 4. Tests del fetcher de NewsAPI ---
     _run_newsapi_tests()
+
+    # --- 5. Tests del fetcher de GNews.io ---
+    _run_gnews_tests()
 
     log.info("=== FIN TEST ===")
 

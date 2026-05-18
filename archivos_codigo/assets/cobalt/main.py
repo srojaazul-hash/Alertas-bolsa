@@ -29,6 +29,7 @@ from framework.llm_validator import analyze_with_gemini, make_gemini_client
 from framework.scoring import score_article
 from framework.sources import (
     fetch_acled,
+    fetch_gnews,
     fetch_news_api,
     fetch_rss,
     fetch_scraping,
@@ -106,6 +107,7 @@ ACLED_EMAIL = ENV.get("ACLED_EMAIL", "")
 BOT_EMAIL = ENV.get("BOT_EMAIL", SMTP_USER)
 GEMINI_API_KEY = ENV.get("GEMINI_API_KEY", "") or os.environ.get("GEMINI_API_KEY", "")
 NEWSAPI_KEY = ENV.get("NEWSAPI_KEY", "") or os.environ.get("NEWSAPI_KEY", "")
+GNEWS_KEY = ENV.get("GNEWS_KEY", "") or os.environ.get("GNEWS_KEY", "")
 
 # ---------------------------------------------------------------------------
 # 3. EMAIL — datos cobalto-específicos para la composición HTML
@@ -507,7 +509,7 @@ def main() -> None:
             seen_this_run.append(art)
             all_articles.append(art)
 
-    # --- NewsAPI.org (queries cobalto-específicas) ---
+    # --- NewsAPI.org (queries cobalto-específicas, 24h delay free tier) ---
     # 9 req/día con 3 queries × 3 runs/día. Free tier permite 100/día.
     # full_text=True descarga la página completa para superar el truncado de
     # ~200ch del free tier (audit forense 2026-05-17).
@@ -516,6 +518,19 @@ def main() -> None:
         full_text=COBALT_CONFIG.news_api_full_text,
     )
     for art in newsapi_articles:
+        if not is_duplicate_article(art, seen_this_run, state):
+            seen_this_run.append(art)
+            all_articles.append(art)
+
+    # --- GNews.io (queries cobalto-específicas, real-time) ---
+    # Complementario a NewsAPI: API separada (100 req/día propios), sin delay.
+    # Mismas queries por simplicidad; los duplicados con NewsAPI los filtra
+    # is_duplicate_article (URL match). Total combinado: 200 req/día efectivos.
+    gnews_articles = fetch_gnews(
+        state, session, GNEWS_KEY, COBALT_CONFIG.gnews_queries,
+        full_text=COBALT_CONFIG.gnews_full_text,
+    )
+    for art in gnews_articles:
         if not is_duplicate_article(art, seen_this_run, state):
             seen_this_run.append(art)
             all_articles.append(art)

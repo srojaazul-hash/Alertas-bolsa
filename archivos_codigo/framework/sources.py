@@ -1,4 +1,4 @@
-"""framework.sources — Fetchers genéricos (RSS, scraping, ACLED, NewsAPI).
+"""framework.sources — Fetchers genéricos (RSS, scraping, ACLED, NewsAPI, GNews).
 
 Cada fetcher recibe la `requests.Session` y los descriptores de fuente desde
 el asset orquestador. El framework no construye sus propios headers ni claves.
@@ -393,5 +393,147 @@ def fetch_news_api(
         update_source_health(state, "newsapi_org", True)
     else:
         update_source_health(state, "newsapi_org", False)
+
+    return articles_all
+
+
+# ---------------------------------------------------------------------------
+# GNews.io
+# ---------------------------------------------------------------------------
+
+# Endpoint estable de GNews v4 /search (búsqueda Boolean por keywords).
+# Diferencia clave vs NewsAPI: real-time (sin delay de 24h del free tier).
+_GNEWS_ENDPOINT = "https://gnews.io/api/v4/search"
+
+
+def fetch_gnews(
+    state: dict,
+    session: requests.Session,
+    api_key: str,
+    queries: list,
+    language: str = "en",
+    days_back: int = 2,
+    page_size: int = 100,
+    full_text: bool = False,
+) -> list:
+    """
+    Fetcher para GNews.io (endpoint /v4/search).
+
+    `queries`: lista de strings de búsqueda Boolean (AND/OR/NOT, "frases literales").
+    Sintaxis equivalente a NewsAPI por compatibilidad.
+
+    `full_text`: si True, tras recibir cada artículo se descarga la URL completa
+    para reemplazar el body con el cuerpo del artículo parseado. Mismo patrón
+    que `fetch_news_api` con `full_text=True`. Necesario porque el free tier
+    de GNews trunca `content` a ~250ch.
+
+    Free tier (relevante para nuestro uso):
+      - 100 requests/día
+      - **REAL-TIME** (sin delay de 24h, diferencia principal vs NewsAPI)
+      - máximo 100 artículos por response
+      - field `content` truncado a ~250 chars
+
+    Devuelve artículos en el mismo formato que `fetch_rss` / `fetch_news_api`.
+    El `source_name` se normaliza a snake_case via `_normalize_source_name`,
+    igual que NewsAPI, permitiendo que el bonus multi-fuente del aggregator
+    cuente fuentes independientes correctamente.
+
+    Fail-safe: sin api_key, sin queries, o si el endpoint cae → returns [].
+    """
+    if not api_key or not queries:
+        return []
+    if is_source_degraded(state, "gnews_io"):
+        return []
+
+    from_date = (datetime.now(timezone.utc) - timedelta(days=days_back)).strftime(
+        "%Y-%m-%dT%H:%M:%SZ"
+    )
+    articles_all: list = []
+    any_success = False
+
+    for query in queries:
+        try:
+            resp = session.get(
+                _GNEWS_ENDPOINT,
+                params={
+                    "q": query,
+                    "from": from_date,
+                    "lang": language,
+                    "max": min(page_size, 100),
+                    "sortby": "publishedAt",
+                    "apikey": api_key,
+                },
+                timeout=20,
+            )
+            resp.raise_for_status()
+            data = resp.json()
+
+            # GNews indica errores en distintos formatos según el caso
+            if isinstance(data, dict) and ("errors" in data or "error" in data):
+                log.warning("GNews error [q='%s']: %s", query[:40], data)
+                continue
+
+            arts_this_query = data.get("articles", []) or []
+            for art in arts_this_query:
+                pub_date_str = art.get("publishedAt", "")
+                try:
+                    pub_date = dateutil_parser.parse(pub_date_str)
+                    if pub_date.tzinfo is None:
+                        pub_date = pub_date.replace(tzinfo=timezone.utc)
+                except Exception:
+                    pub_date = datetime.now(timezone.utc)
+
+                # Filtro de edad consistente con el resto del pipeline
+                age_hours = (datetime.now(timezone.utc) - pub_date).total_seconds() / 3600
+                if age_hours > 48:
+                    continue
+
+                source_raw = (art.get("source") or {}).get("name", "")
+                source_norm = _normalize_source_name(source_raw)
+
+                # GNews free tier corta `content` a ~250ch. description+content combinados
+                parts = [p for p in (art.get("description"), art.get("content")) if p]
+                body = " ".join(parts)[:8000]
+
+                url = art.get("url", "") or ""
+
+                # full_text fetch: idéntico al patrón de fetch_news_api/fetch_rss
+                if full_text and url and not is_url_processed(state, url):
+                    time.sleep(1)  # politeness
+                    full_html = fetch_url(session, url, timeout=20)
+                    if full_html:
+                        try:
+                            soup = BeautifulSoup(full_html, "lxml")
+                            for tag in soup(["script", "style", "nav", "footer", "header"]):
+                                tag.decompose()
+                            full_body = soup.get_text(separator=" ", strip=True)[:8000]
+                            if full_body and len(full_body) > len(body):
+                                body = full_body
+                        except Exception as exc:
+                            log.debug("GNews full_text parse error [%s]: %s", url, exc)
+
+                articles_all.append({
+                    "url": url,
+                    "title": art.get("title", "") or "",
+                    "body": body,
+                    "pub_date": pub_date,
+                    "source_name": source_norm,
+                })
+
+            any_success = True
+            kept_so_far = len(articles_all)
+            log.info(
+                "GNews OK [q='%s']: %d articulos en respuesta, %d retenidos tras filtro 48h",
+                query[:40], len(arts_this_query), kept_so_far,
+            )
+        except requests.HTTPError as exc:
+            log.warning("GNews HTTP error [q='%s']: %s", query[:40], exc)
+        except Exception as exc:
+            log.warning("GNews FAIL [q='%s']: %s", query[:40], exc)
+
+    if any_success:
+        update_source_health(state, "gnews_io", True)
+    else:
+        update_source_health(state, "gnews_io", False)
 
     return articles_all
