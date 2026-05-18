@@ -529,11 +529,24 @@ def main() -> None:
         hits = analyze_with_gemini(art, hits, COBALT_CONFIG, gemini_client)
         all_hits.extend(hits)
         if hits:
-            log.debug(
-                "%s -> %d hits (max bruto: %.2f)",
-                art.get("title", "?")[:60],
+            # INFO log por artículo con hits — observabilidad esencial para
+            # diagnóstico continuo. Muestra qué keywords disparan, en qué
+            # categoría, con qué score signed. Sin esto los runs son cajas
+            # negras: SSC=X sin saber qué keywords están contribuyendo.
+            # Top 5 hits por |score| para evitar líneas eternas en feeds
+            # ruidosos.
+            hits_summary = ", ".join(
+                f"{h['keyword']}({h['category']},{h['score_bruto']:+.1f})"
+                for h in sorted(hits, key=lambda x: abs(x["score_bruto"]), reverse=True)[:5]
+            )
+            geos_set = sorted({h["best_geo"] for h in hits if h["best_geo"]})
+            log.info(
+                "HIT [%s] source=%s geo=%s n=%d | %s",
+                art.get("title", "?")[:70],
+                art.get("source_name", "?"),
+                ",".join(geos_set) or "-",
                 len(hits),
-                max(abs(h["score_bruto"]) for h in hits),
+                hits_summary,
             )
 
     log.info("Total hits de scoring: %d", len(all_hits))
