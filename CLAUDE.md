@@ -2,6 +2,30 @@
 
 This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
 
+## ⚡ Estado actual del proyecto (última actualización 2026-05-18)
+
+**Antes de pensar que algo está sin empezar, lee este resumen.** La `Hoja de ruta publica.md` tiene checkboxes en dos secciones (descripción de cada fase + tracking final) que pueden estar desincronizados — siempre cruzar con la sección "Notas / insights acumulados" al final de la roadmap para confirmar lo realmente hecho.
+
+| Fase | Estado | Comentario |
+|---|---|---|
+| **Fase 1** — Extracción de framework | ✅ **COMPLETADA** (2026-05-17) | `archivos_codigo/framework/` + `assets/cobalt/` + `tests/` operativos. Cron VM apunta al nuevo entry point. |
+| **Fase 1.5** — Saneamiento de fuentes | 🔵 **EN CURSO** (mayoría tareas hechas, falta observación 2-3 días naturales) | NewsAPI + GNews integrados. URL normalization activa. Observabilidad de hits implementada. 26 RSS sources tras cleanup. |
+| **Fase 2** — Cobre | ⏳ NO EMPEZADA | Bloqueada hasta cerrar Fase 1.5 |
+| **Fase 3** — Analista LLM | ⏳ NO EMPEZADA | Bloqueada hasta cerrar Fase 1.5 + 2 |
+| **Fase 4** — Paper trading Alpaca | ⏳ NO EMPEZADA | |
+| **Fase 5** — Métricas | ⏳ NO EMPEZADA | |
+| **Fase 6** — Optimización | ⏳ NO EMPEZADA | |
+
+**Gemini en producción**: ❌ desactivado. Free tier disponible pero esperando volumen ≥3 hits/run consistente para validar utilidad sin desperdiciar cuota.
+
+**Lo que toca AHORA**:
+1. Dejar correr el cron 2-3 días naturales para acumular datos.
+2. Si patrón de falsos positivos aparece (ej. `port strike` disparando sin anchor cobalt en artículos no-cobalto), ajustar keywords específicos con evidencia, no preemptivamente.
+3. Si volumen de hits ≥3/run consistente, activar Gemini (`pip install google-genai` en el venv de la VM).
+4. Cuando Fase 1.5 cierre, arrancar Fase 2 (cobre).
+
+**NO empezar a refactorizar nada de Fase 1 ni "crear estructura framework/"** — todo eso está hecho. El código está en `archivos_codigo/`.
+
 ## Strategic source of truth
 
 **Before any substantial change, read the strategic roadmap.** There are two versions:

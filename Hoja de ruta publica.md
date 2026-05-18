@@ -95,19 +95,23 @@ archivos_codigo/
 └── MAPA_SCORER.html / .md    # mapa visual del monolito legacy
 ```
 
-**Tareas concretas**:
-- [ ] Crear estructura `archivos_codigo/framework/` y `archivos_codigo/assets/cobalt/`
-- [ ] Extraer cada función genérica al módulo correspondiente
-- [ ] Mover todo lo cobalto-específico a `archivos_codigo/assets/cobalt/dictionary.py`
-- [ ] `archivos_codigo/assets/cobalt/main.py` solo importa del framework y del dictionary; cero lógica propia
-- [ ] Ejecutar desde `archivos_codigo/`: `COBALT_TEST_MODE=1 COBALT_TEST_NO_GEMINI=1 python -m assets.cobalt.main` → 9/9 tests pasan
-- [ ] Cron en VM apunta al nuevo entry point
+**Estado: ✅ COMPLETADA (2026-05-17)**. Ver Notas/insights al final del documento para detalle.
 
-**Criterio de éxito**: añadir un asset nuevo cuesta < 1 día de trabajo (solo escribir su diccionario y URLs).
+**Tareas concretas**:
+- [x] Crear estructura `archivos_codigo/framework/` y `archivos_codigo/assets/cobalt/`
+- [x] Extraer cada función genérica al módulo correspondiente
+- [x] Mover todo lo cobalto-específico a `archivos_codigo/assets/cobalt/dictionary.py`
+- [x] `archivos_codigo/assets/cobalt/main.py` solo importa del framework y del dictionary; cero lógica propia
+- [x] Ejecutar desde `archivos_codigo/`: `COBALT_TEST_MODE=1 COBALT_TEST_NO_GEMINI=1 python -m assets.cobalt.main` → 10/10 tests pasan (era 9, se añadió #10 para gap militar deployment)
+- [x] Cron en VM apunta al nuevo entry point
+
+**Criterio de éxito (cumplido)**: añadir un asset nuevo cuesta < 1 día de trabajo (solo escribir su diccionario y URLs).
 
 ---
 
 ### FASE 1.5 — Saneamiento del pipeline de fuentes  *(estimado: 4-8h)*
+
+**Estado: 🔵 EN CURSO** (mayoría de tareas completadas 2026-05-17/18, falta solo observación de 2-3 días naturales del cron antes de cerrar). Ver Notas/insights al final.
 
 **Objetivo**: tener al menos 3 fuentes cobalto-específicas activas que entreguen contenido relevante de forma consistente. Sin esto, Fase 2-5 construyen sobre datos vacíos.
 
@@ -123,22 +127,21 @@ archivos_codigo/
 - Varias fuentes "Tier 1" del config original (Northern Miner, IM Mining, Energy Storage News) responden HTTP 200 pero con 0 entradas o feed malformado
 
 **Tareas concretas**:
-- [x] Limpieza del config: eliminar 6 fuentes confirmadamente rotas, renombrar 3 con nombres engañosos (commit `cleanup config de fuentes RSS`)
-- [x] Fix del bug DEGRADED-forever en `framework/state.py` (commit `Fix: source_health DEGRADED puede reintentarse`)
-- [ ] Probar individualmente con curl: `kitco` (im-mining.com), `miningmx`, `mining_technology`, `energy_storage_news`. Eliminar o mantener según resultado real.
-- [ ] Investigar feeds RSS activos en 2026 para cobalto. Candidatos a evaluar:
-  - Cobalt Institute (cobaltinstitute.org) — sin RSS público confirmado, ver si hay
-  - Fastmarkets cobalt — paywall probable, ver si tienen newsletter gratis
-  - S&P Global Commodity Insights — paywall, ver alternativas
-  - Argus Media — paywall
-  - Benchmark Mineral Intelligence — paywall pero tienen blog público
-  - Bloomberg via NewsAPI.org (free tier 100 req/día)
-  - Reuters business RSS oficial (si todavía existe sin paywall)
-- [ ] Decidir si justifica cambiar de proveedor de VM (Hetzner / OVH) para sortear bloqueos por IP-range de GCP. Coste vs beneficio.
-- [ ] Añadir 5-10 fuentes nuevas al config con credibilidad calibrada
-- [ ] Test de salud automático: añadir log de "fuentes muertas hoy" en cada run del cron, con umbral de aviso si >30% del config falla
-- [ ] Considerar implementación de `framework/sources.py` opcional con TLS fingerprint de browser (`curl_cffi` o equivalente) para feeds que filtran por TLS
-- [ ] **Dedup robusto cross-run con title similarity** (anotado 2026-05-17). La URL normalization añadida cubre variaciones triviales (utm tags, prefijo `www.`, trailing slash, query/fragment). Pero NO cubre el caso de "mismo contenido republicado en otro dominio" — Reuters→Yahoo Finance→MSN con URLs completamente distintas pero artículo equivalente. Para ese caso implementar matching por similitud de título contra `processed_urls`. Requiere extender el schema de `processed_urls` en `state.json` para guardar también el title (backwards-compat: entradas sin title se siguen tratando como hoy). Complejidad: media. Beneficio: incierto hasta tener 1-2 semanas de datos del cron real — si vemos que la duplicación cross-domain ocurre con frecuencia, justifica el esfuerzo; si no, queda en backlog.
+- [x] Limpieza del config: eliminar 6 fuentes confirmadamente rotas, renombrar 3 con nombres engañosos (commit `cc5b54c`)
+- [x] Fix del bug DEGRADED-forever en `framework/state.py` (commit `865cf7e`)
+- [x] Audit con curl de fuentes sospechosas hecho → +9 fuentes nuevas añadidas (commit `61f1c8e`), 2 descartadas tras forensic audit con feedparser (commit `01fc186`)
+- [x] Investigación de fuentes cobalto-específicas terminada con esta decisión: las realmente cobalto-específicas (Argus, Benchmark, S&P, Fastmarkets) son TODAS paywalled. Las accesibles vía RSS gratuito no cubren cobalto con suficiente frecuencia para 48h. **Pivote**: integrar APIs de noticias (NewsAPI + GNews) en lugar de seguir buscando más RSS
+- [x] **Integración NewsAPI.org** completa: fetcher genérico en `framework/sources.py`, 3 queries cobalto-específicas, `full_text=True` para superar truncado de 200ch (commits `af5ddff` + `f0f662a`)
+- [x] **Integración GNews.io** completa: análoga a NewsAPI pero **real-time**, sleep 2s entre queries por rate limit del free tier (commits `3e4e94e` + `faf7d2e`)
+- [x] **Fix anchor oilprice**: GAP=4/10 anchors perdidos por summary corto → `full_text=True` en RSS source (commit `0cedb78`)
+- [x] **Gap militar deployment** en GEO-CONFLICT: +20 keywords EN/FR/ES/PT + test sintético #10 (commit `bbcb922`)
+- [x] **Observabilidad de hits**: log INFO por artículo con keyword/categoría/score/geo (commit `83e1466`)
+- [x] **URL normalization** para dedup cross-API: `_normalize_url` + 9 tests sintéticos (commit `da7512a`)
+- [x] **Fix logging de tests**: `COBALT_TEST_MODE=1` ya NO escribe al `scorer.log` de producción (commit `e3ac092`)
+- [ ] **Observación natural del cron durante 2-3 días** para validar: (a) si FP de `port strike` (visto en run 2026-05-18 16:00 UTC) se repite y justifica `requires_context=True`, (b) volumen real de hits/día sostenido, (c) si GNews trae artículos en algún tick cuando NewsAPI no
+- [ ] **Decisión sobre activar Gemini** en producción tras observación (volumen ≥3 hits/run consistente)
+- [ ] **Dedup cross-run con title similarity** (anotado para más adelante). La URL normalization cubre variaciones triviales pero NO "mismo contenido republicado en otro dominio" (Reuters→Yahoo Finance). Requiere extender schema de `processed_urls` para guardar titles. Esperar 1-2 semanas de datos para decidir si justifica el esfuerzo.
+- [ ] Decidir si cambiar de proveedor de VM (Hetzner/OVH) para sortear bloqueo IP de mining.com. Esperar datos.
 
 **Criterio de éxito**: 
 - ≥3 fuentes cobalto-específicas activas entregando ≥10 artículos cobalto-relevantes/semana en agregado
