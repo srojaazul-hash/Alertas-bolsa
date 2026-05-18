@@ -689,9 +689,13 @@ RSS_SOURCES = [
     {"name": "cnbc_commodities",
      "url":  "https://search.cnbc.com/rs/search/combinedcms/view.xml?partnerId=wrss01&id=10001147",
      "lang": "en", "full_text": False, "rate_limit": 90, "timeout": 15},
+    # oilprice_main: audit forense del anchor cobalt (2026-05-17) detectó GAP=4
+    # en 10 artículos. El summary del RSS (~550ch) era demasiado corto y se
+    # perdían menciones cobalto presentes en el cuerpo. full_text=True añade
+    # ~30s al run pero captura 4× más anchors de esta fuente específicamente.
     {"name": "oilprice_main",
      "url":  "https://oilprice.com/rss/main",
-     "lang": "en", "full_text": False, "rate_limit": 90, "timeout": 15},
+     "lang": "en", "full_text": True, "rate_limit": 90, "timeout": 15},
     {"name": "investing_commodities",
      "url":  "https://www.investing.com/rss/news_25.rss",
      "lang": "en", "full_text": False, "rate_limit": 90, "timeout": 15},
