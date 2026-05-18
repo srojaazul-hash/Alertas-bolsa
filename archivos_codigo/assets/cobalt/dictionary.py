@@ -574,6 +574,19 @@ SOURCE_CREDIBILITY = {
     # artículos consistentemente (Google ha restringido el RSS de Google News
     # desde 2024). Eliminadas del config. Solo sobrevive indonesia_nickel.
     "gnews_indonesia_nickel": 0.50,
+    # ---------------------------------------------------------------------
+    # Fuentes nuevas (Fase 1.5, 2026-05-17). Curl-tested desde IP de GCP,
+    # las 9 confirmadamente accesibles + devolviendo RSS válido.
+    # ---------------------------------------------------------------------
+    "cobalt_institute":   0.90,  # institución oficial del sector
+    "australian_mining":  0.85,  # publicación industrial AU
+    "cleantechnica_cobalt": 0.80,  # tag específico cobalto en blog establecido
+    "cnbc_commodities":   0.85,  # medio financiero mainstream
+    "radio_okapi":        0.85,  # radio respaldada UN en DRC (FR, GEO-01 primario)
+    "resource_world":     0.80,  # mining magazine canadiense
+    "ns_energy":          0.75,  # energy + mining specialist
+    "oilprice_main":      0.70,  # focus oil, mining secundario
+    "investing_commodities": 0.65,  # aggregator commodities, contenido variable
 }
 
 RSS_SOURCES = [
@@ -650,6 +663,43 @@ RSS_SOURCES = [
     {"name": "gnews_indonesia_nickel",
      "url":  "https://news.google.com/rss/search?q=Indonesia+nickel+cobalt+HPAL+disruption&hl=en-US&gl=US&ceid=US:en",
      "lang": "en", "full_text": False, "rate_limit": 300, "timeout": 10},
+
+    # --- Fase 1.5 (2026-05-17): fuentes nuevas tras curl-test desde GCP ---
+    # Las 9 candidatas que devolvieron HTTP 200 + RSS válido en la auditoría.
+    # Ver feedback_no_flattery.md y el commit de Fase 1.5 para metodología.
+
+    # Tier 1: cobalto-específicas / mining specialist
+    {"name": "cobalt_institute",
+     "url":  "https://www.cobaltinstitute.org/category/news/feed/",
+     "lang": "en", "full_text": True, "rate_limit": 60, "timeout": 15},
+    {"name": "cleantechnica_cobalt",
+     "url":  "https://cleantechnica.com/tag/cobalt/feed/",
+     "lang": "en", "full_text": False, "rate_limit": 60, "timeout": 15},
+    {"name": "australian_mining",
+     "url":  "https://www.australianmining.com.au/feed/",
+     "lang": "en", "full_text": False, "rate_limit": 60, "timeout": 15},
+    {"name": "resource_world",
+     "url":  "https://resourceworld.com/feed/",
+     "lang": "en", "full_text": False, "rate_limit": 60, "timeout": 15},
+    {"name": "ns_energy",
+     "url":  "https://www.nsenergybusiness.com/feed/",
+     "lang": "en", "full_text": False, "rate_limit": 60, "timeout": 15},
+
+    # Tier 2: commodities financieras / generales
+    {"name": "cnbc_commodities",
+     "url":  "https://search.cnbc.com/rs/search/combinedcms/view.xml?partnerId=wrss01&id=10001147",
+     "lang": "en", "full_text": False, "rate_limit": 90, "timeout": 15},
+    {"name": "oilprice_main",
+     "url":  "https://oilprice.com/rss/main",
+     "lang": "en", "full_text": False, "rate_limit": 90, "timeout": 15},
+    {"name": "investing_commodities",
+     "url":  "https://www.investing.com/rss/news_25.rss",
+     "lang": "en", "full_text": False, "rate_limit": 90, "timeout": 15},
+
+    # Regional: DRC (cobertura GEO-01 primaria, contenido en francés)
+    {"name": "radio_okapi",
+     "url":  "https://www.radiookapi.net/rss.xml",
+     "lang": "fr", "full_text": False, "rate_limit": 60, "timeout": 15},
 ]
 
 SCRAPING_SOURCES = [
