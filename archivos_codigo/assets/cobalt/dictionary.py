@@ -576,13 +576,13 @@ SOURCE_CREDIBILITY = {
     "gnews_indonesia_nickel": 0.50,
     # ---------------------------------------------------------------------
     # Fuentes nuevas (Fase 1.5, 2026-05-17). Curl-tested desde IP de GCP,
-    # las 9 confirmadamente accesibles + devolviendo RSS válido.
+    # las 7 confirmadamente accesibles tras audit forense.
+    # (cleantechnica_cobalt y radio_okapi eliminadas: publicaban con frecuencia
+    # demasiado baja para el filtro de 48h — ver comentario en RSS_SOURCES.)
     # ---------------------------------------------------------------------
     "cobalt_institute":   0.90,  # institución oficial del sector
     "australian_mining":  0.85,  # publicación industrial AU
-    "cleantechnica_cobalt": 0.80,  # tag específico cobalto en blog establecido
     "cnbc_commodities":   0.85,  # medio financiero mainstream
-    "radio_okapi":        0.85,  # radio respaldada UN en DRC (FR, GEO-01 primario)
     "resource_world":     0.80,  # mining magazine canadiense
     "ns_energy":          0.75,  # energy + mining specialist
     "oilprice_main":      0.70,  # focus oil, mining secundario
@@ -672,9 +672,9 @@ RSS_SOURCES = [
     {"name": "cobalt_institute",
      "url":  "https://www.cobaltinstitute.org/category/news/feed/",
      "lang": "en", "full_text": True, "rate_limit": 60, "timeout": 15},
-    {"name": "cleantechnica_cobalt",
-     "url":  "https://cleantechnica.com/tag/cobalt/feed/",
-     "lang": "en", "full_text": False, "rate_limit": 60, "timeout": 15},
+    # cleantechnica_cobalt eliminada (audit forense 2026-05-17): el feed devolvía
+    # 45 artículos en archivo pero el más reciente tenía 20 días. CleanTechnica
+    # publica sobre cobalto ~1 vez cada 20 días, fuera del filtro útil de 48h.
     {"name": "australian_mining",
      "url":  "https://www.australianmining.com.au/feed/",
      "lang": "en", "full_text": False, "rate_limit": 60, "timeout": 15},
@@ -696,10 +696,10 @@ RSS_SOURCES = [
      "url":  "https://www.investing.com/rss/news_25.rss",
      "lang": "en", "full_text": False, "rate_limit": 90, "timeout": 15},
 
-    # Regional: DRC (cobertura GEO-01 primaria, contenido en francés)
-    {"name": "radio_okapi",
-     "url":  "https://www.radiookapi.net/rss.xml",
-     "lang": "fr", "full_text": False, "rate_limit": 60, "timeout": 15},
+    # radio_okapi eliminada (audit forense 2026-05-17): el feed devolvía 30 items
+    # pero el más reciente tenía 644h (27 días). Probablemente esa URL apunta a
+    # un archivo histórico, no al feed en vivo del sitio. Sin saber la URL real
+    # del feed actual (requeriría inspección manual del sitio), eliminada del config.
 ]
 
 SCRAPING_SOURCES = [
