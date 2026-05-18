@@ -231,6 +231,33 @@ def build_test_articles() -> list:
             "source_name": "gdacs",
             "lang": "en",
         },
+        # --- Artículo 10: Cobertura keyword militar deployment ---
+        # Gap encontrado en audit forense de NewsAPI (2026-05-17). Un artículo real
+        # de The Conversation Africa decía: "DRC is sending in the military to guard
+        # mines and critical minerals. Will it be enough?". El sistema tenía anchor
+        # ("critical mineral") + geo (GEO-01) OK pero NINGÚN keyword del dictionary
+        # cubría despliegue militar preventivo (sólo ataques activos / coup).
+        # Tras añadir keywords "military deployment", "military to guard mines",
+        # "militarization of mines", "soldiers deployed" (en EN/FR/ES/PT), este
+        # tipo de señal puntua correctamente. Este test bloquea regresión: si los
+        # keywords se eliminan accidentalmente, hits caería a 0.
+        # Esperado: hits>=3, max_score>=10, path=A (max_score>=8 trigger Gemini Path A)
+        {
+            "title": "DRC sends in the military to guard cobalt mines after rebel threats in Kolwezi",
+            "body": (
+                "Kinshasa announced today that military deployment to the Kolwezi region "
+                "would begin immediately. The military to guard mines initiative aims to "
+                "protect strategic cobalt assets in the DRC Copperbelt. Soldiers deployed "
+                "to key production sites in Lualaba province will safeguard critical "
+                "minerals output amid escalating instability. Industry analysts in "
+                "Lubumbashi confirm the militarization of mines is unprecedented and "
+                "signals heightened supply chain risk for cobalt-dependent markets."
+            ),
+            "url": "https://test.local/article-10-military-deployment",
+            "pub_date": now,
+            "source_name": "northern_miner",
+            "lang": "en",
+        },
     ]
 
 

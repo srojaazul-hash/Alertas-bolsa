@@ -348,6 +348,36 @@ KEYWORDS = [
     ("conflito armado",           "GEO-CONFLICT", 4.5, False, 50, ["GEO-01"]),
     ("ataque de milicia",         "GEO-CONFLICT", 4.8, False, 50, ["GEO-01"]),
 
+    # --- GEO-CONFLICT: despliegue militar / militarización (cobertura añadida
+    # tras audit forense de NewsAPI 2026-05-17). El sistema no detectaba señales
+    # de militarización PREVENTIVA en zonas mineras (vs. ataques activos que ya
+    # cubrían los keywords anteriores). Caso real perdido: "DRC sending in the
+    # military to guard mines and critical minerals" — anchor + geo OK pero
+    # ningún keyword disparaba. Test #10 en synthetic_articles.py bloquea regresión.
+    ("military deployment",       "GEO-CONFLICT", 4.0, True,  60, ["GEO-01","GEO-02"]),
+    ("military to guard mines",   "GEO-CONFLICT", 4.5, False, 80, ["GEO-01","GEO-02"]),
+    ("military to guard",         "GEO-CONFLICT", 3.8, True,  60, ["GEO-01","GEO-02"]),
+    ("soldiers deployed",         "GEO-CONFLICT", 3.5, True,  60, ["GEO-01","GEO-02"]),
+    ("army deployed",             "GEO-CONFLICT", 3.5, True,  60, ["GEO-01","GEO-02"]),
+    ("army to guard",             "GEO-CONFLICT", 3.5, True,  60, ["GEO-01","GEO-02"]),
+    ("militarization of mines",   "GEO-CONFLICT", 4.5, False, 80, ["GEO-01","GEO-02"]),
+    ("armed escort mining",       "GEO-CONFLICT", 4.0, False, 80, ["GEO-01","GEO-02"]),
+    ("security forces deployed",  "GEO-CONFLICT", 3.5, True,  60, ["GEO-01","GEO-02"]),
+    # FR (RFI Afrique, Radio Okapi cuando vuelva)
+    ("deploiement militaire",     "GEO-CONFLICT", 4.0, True,  60, ["GEO-01"]),
+    ("militaires deployes",       "GEO-CONFLICT", 3.5, True,  60, ["GEO-01"]),
+    ("armee proteger mines",      "GEO-CONFLICT", 4.5, False, 80, ["GEO-01"]),
+    ("militarisation mines",      "GEO-CONFLICT", 4.5, False, 80, ["GEO-01"]),
+    # ES
+    ("despliegue militar",        "GEO-CONFLICT", 4.0, True,  60, ["GEO-01","GEO-02"]),
+    ("militares desplegados",     "GEO-CONFLICT", 3.5, True,  60, ["GEO-01","GEO-02"]),
+    ("ejercito proteger minas",   "GEO-CONFLICT", 4.5, False, 80, ["GEO-01","GEO-02"]),
+    ("militarizacion minas",      "GEO-CONFLICT", 4.5, False, 80, ["GEO-01","GEO-02"]),
+    # PT (Mozambique, Club Mozambique cuando vuelva)
+    ("destacamento militar",      "GEO-CONFLICT", 4.0, True,  60, ["GEO-03B","GEO-04"]),
+    ("militares destacados",      "GEO-CONFLICT", 3.5, True,  60, ["GEO-03B","GEO-04"]),
+    ("militarizacao minas",       "GEO-CONFLICT", 4.5, False, 80, ["GEO-03B","GEO-04"]),
+
     # --- GEO-COUP ---
     ("coup",                      "GEO-COUP", 4.5, True,  40, ["GEO-01","GEO-02"]),
     ("military takeover",         "GEO-COUP", 5.0, False, 50, ["GEO-01","GEO-02","GEO-03A","GEO-03B","GEO-04"]),
@@ -609,6 +639,9 @@ SOURCE_CREDIBILITY = {
     "reuters_uk":            1.00,
     "ft":                    0.95,
     "newsapi_unknown":       0.65,  # fallback explícito si NewsAPI no especifica medio
+    # Detectados en logs reales del cron (añadir aquí si vemos source_names nuevos)
+    "the_conversation":         0.85,  # plataforma académica/periodística establecida
+    "the_conversation_africa":  0.85,  # edición regional, mismo nivel
 }
 
 RSS_SOURCES = [
