@@ -27,7 +27,13 @@ from assets.cobalt.dictionary import COBALT_CONFIG
 from framework.aggregator import aggregate_scores, level_smc, level_ssc, should_alert
 from framework.llm_validator import analyze_with_gemini, make_gemini_client
 from framework.scoring import score_article
-from framework.sources import fetch_acled, fetch_rss, fetch_scraping, make_session
+from framework.sources import (
+    fetch_acled,
+    fetch_news_api,
+    fetch_rss,
+    fetch_scraping,
+    make_session,
+)
 from framework.state import (
     compute_run_number,
     is_duplicate_article,
@@ -99,6 +105,7 @@ ACLED_KEY = ENV.get("ACLED_KEY", "")
 ACLED_EMAIL = ENV.get("ACLED_EMAIL", "")
 BOT_EMAIL = ENV.get("BOT_EMAIL", SMTP_USER)
 GEMINI_API_KEY = ENV.get("GEMINI_API_KEY", "") or os.environ.get("GEMINI_API_KEY", "")
+NEWSAPI_KEY = ENV.get("NEWSAPI_KEY", "") or os.environ.get("NEWSAPI_KEY", "")
 
 # ---------------------------------------------------------------------------
 # 3. EMAIL — datos cobalto-específicos para la composición HTML
@@ -496,6 +503,16 @@ def main() -> None:
     # --- ACLED ---
     acled_articles = fetch_acled(state, session, ACLED_KEY, ACLED_EMAIL)
     for art in acled_articles:
+        if not is_duplicate_article(art, seen_this_run, state):
+            seen_this_run.append(art)
+            all_articles.append(art)
+
+    # --- NewsAPI.org (queries cobalto-específicas) ---
+    # 9 req/día con 3 queries × 3 runs/día. Free tier permite 100/día.
+    newsapi_articles = fetch_news_api(
+        state, session, NEWSAPI_KEY, COBALT_CONFIG.news_api_queries
+    )
+    for art in newsapi_articles:
         if not is_duplicate_article(art, seen_this_run, state):
             seen_this_run.append(art)
             all_articles.append(art)

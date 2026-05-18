@@ -587,6 +587,28 @@ SOURCE_CREDIBILITY = {
     "ns_energy":          0.75,  # energy + mining specialist
     "oilprice_main":      0.70,  # focus oil, mining secundario
     "investing_commodities": 0.65,  # aggregator commodities, contenido variable
+
+    # ---------------------------------------------------------------------
+    # NewsAPI.org (Fase 1.5+, 2026-05-17). Los artículos vienen con el nombre
+    # del medio normalizado a snake_case (ver framework/sources._normalize_source_name).
+    # Esto permite que el bonus multi-fuente del aggregator distinga Reuters
+    # vía NewsAPI de BBC vía NewsAPI como fuentes independientes.
+    # Si un medio no aparece aquí, score_article cae al default 0.70.
+    # ---------------------------------------------------------------------
+    "reuters":               1.00,  # idem a reuters_africa cuando era válido
+    "bloomberg":             0.95,
+    "the_wall_street_journal": 0.95,
+    "financial_times":       0.95,
+    "associated_press":      0.95,
+    "bbc_news":              0.90,
+    "the_economist":         0.95,
+    "the_guardian":          0.85,
+    "mining_com":            0.95,  # mining.com via NewsAPI (sortea bloqueo IP de GCP)
+    "south_china_morning_post": 0.80,
+    "cnbc":                  0.85,
+    "reuters_uk":            1.00,
+    "ft":                    0.95,
+    "newsapi_unknown":       0.65,  # fallback explícito si NewsAPI no especifica medio
 }
 
 RSS_SOURCES = [
@@ -719,6 +741,37 @@ SCRAPING_SOURCES = [
 ]
 
 # ---------------------------------------------------------------------------
+# NewsAPI.org queries (Fase 1.5+, 2026-05-17)
+# ---------------------------------------------------------------------------
+# Cada query gasta 1 request del free tier (100/día). 3 runs/día × 3 queries
+# = 9 req/día, sobra margen para iterar las queries sin agotar cuota.
+#
+# Diseño: 3 queries complementarias que cubren los 3 vectores principales:
+#   1. Cobalto explícito + signals de disrupción/supply chain
+#   2. Geografías cobalto-críticas + minería (captura artículos donde "cobalt"
+#      no aparece literal pero el contexto geo-mining lo implica)
+#   3. Tecnologías sustitutas (DEM-SUBSTITUTE: LFP, sodium-ion, etc.) que
+#      reducen demanda de cobalto
+#
+# Sintaxis NewsAPI Boolean: https://newsapi.org/docs/endpoints/everything
+# AND/OR/NOT, "frases entre comillas", paréntesis para precedencia.
+# ---------------------------------------------------------------------------
+
+NEWS_API_QUERIES = [
+    # Vector 1: cobalto explícito + signals de disrupción/supply
+    '"cobalt" AND (mining OR refining OR supply OR export OR shortage OR price OR strike OR ban OR sanctions)',
+
+    # Vector 2: geografías cobalto-críticas + minería
+    # (captura artículos sobre DRC/Zambia/Indonesia mining donde "cobalt" no
+    # aparece pero el contexto sí: militias en Katanga, huelgas en Kolwezi,
+    # huracanes en Mozambique con corredor, etc.)
+    '("Katanga" OR "Kolwezi" OR "Lualaba" OR "DRC mining" OR "Congo mining" OR "Zambia Copperbelt" OR "Sulawesi nickel") AND (strike OR conflict OR export OR ban OR closure OR disruption)',
+
+    # Vector 3: tecnologías sustitutas (DEM-SUBSTITUTE)
+    '("LFP battery" OR "cobalt-free battery" OR "sodium-ion battery" OR "solid state battery") AND (production OR adoption OR breakthrough OR commercial)',
+]
+
+# ---------------------------------------------------------------------------
 # 7. NIVELES (semáforo) — formato [(umbral_max_excluyente, NOMBRE, color), …]
 # ---------------------------------------------------------------------------
 
@@ -801,4 +854,5 @@ COBALT_CONFIG = AssetConfig(
     gemini_validate_prompt=GEMINI_VALIDATE_PROMPT,
     gemini_multiplier_prompt=GEMINI_MULTIPLIER_PROMPT,
     no_decay_categories=NO_DECAY_CATEGORIES,
+    news_api_queries=NEWS_API_QUERIES,
 )

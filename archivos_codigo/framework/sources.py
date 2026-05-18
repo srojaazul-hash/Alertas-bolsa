@@ -1,4 +1,4 @@
-"""framework.sources — Fetchers genéricos (RSS, scraping, ACLED).
+"""framework.sources — Fetchers genéricos (RSS, scraping, ACLED, NewsAPI).
 
 Cada fetcher recibe la `requests.Session` y los descriptores de fuente desde
 el asset orquestador. El framework no construye sus propios headers ni claves.
@@ -6,7 +6,7 @@ el asset orquestador. El framework no construye sus propios headers ni claves.
 
 import logging
 import time
-from datetime import datetime, timezone
+from datetime import datetime, timezone, timedelta
 from typing import Optional
 
 import feedparser
@@ -228,3 +228,144 @@ def fetch_acled(
         log.warning("ACLED FAIL: %s", exc)
         update_source_health(state, "acled", False)
         return []
+
+
+# ---------------------------------------------------------------------------
+# NewsAPI.org
+# ---------------------------------------------------------------------------
+
+# Endpoint estable de NewsAPI v2 /everything (búsqueda Boolean por keywords).
+_NEWSAPI_ENDPOINT = "https://newsapi.org/v2/everything"
+
+
+def _normalize_source_name(source_raw: str) -> str:
+    """
+    Normaliza el nombre de medio de NewsAPI a un identificador `snake_case`
+    ASCII apto para usar como `source_name` y como key en SOURCE_CREDIBILITY.
+
+    Ejemplos:
+        "Reuters"                    → "reuters"
+        "BBC News"                   → "bbc_news"
+        "South China Morning Post"   → "south_china_morning_post"
+        "Mining.com"                 → "mining_com"
+        ""                           → "newsapi_unknown"
+    """
+    if not source_raw:
+        return "newsapi_unknown"
+    norm = source_raw.lower().strip()
+    # Reemplazar todo carácter no-alfanumérico por underscore, colapsar duplicados
+    norm = "".join(c if c.isalnum() else "_" for c in norm)
+    norm = "_".join(filter(None, norm.split("_")))
+    return norm or "newsapi_unknown"
+
+
+def fetch_news_api(
+    state: dict,
+    session: requests.Session,
+    api_key: str,
+    queries: list,
+    language: str = "en",
+    days_back: int = 2,
+    page_size: int = 100,
+) -> list:
+    """
+    Fetcher para NewsAPI.org (endpoint /v2/everything).
+
+    `queries`: lista de strings de búsqueda Boolean (AND/OR/NOT, "frases literales").
+    Cada query gasta 1 request del cuota del API key.
+
+    Free tier (relevante para nuestro uso):
+      - 100 requests/día
+      - artículos con delay de 24h (no real-time)
+      - máximo 100 artículos por response
+      - field `content` truncado a ~200 chars (usamos `description` + `content`)
+
+    Devuelve artículos en el mismo formato que `fetch_rss`. El `source_name`
+    se normaliza a snake_case del medio real (e.g. "reuters", "bbc_news"),
+    permitiendo que el bonus multi-fuente del aggregator funcione correctamente:
+    artículos del mismo evento en Reuters y BBC vía NewsAPI cuentan como 2
+    fuentes distintas.
+
+    Fail-safe: sin api_key, sin queries, o si el endpoint cae → returns [].
+    """
+    if not api_key or not queries:
+        return []
+    if is_source_degraded(state, "newsapi_org"):
+        return []
+
+    from_date = (datetime.now(timezone.utc) - timedelta(days=days_back)).strftime(
+        "%Y-%m-%dT%H:%M:%S"
+    )
+    articles_all: list = []
+    any_success = False
+
+    for query in queries:
+        try:
+            resp = session.get(
+                _NEWSAPI_ENDPOINT,
+                params={
+                    "q": query,
+                    "from": from_date,
+                    "language": language,
+                    "sortBy": "publishedAt",
+                    "pageSize": page_size,
+                },
+                headers={"X-Api-Key": api_key},
+                timeout=20,
+            )
+            resp.raise_for_status()
+            data = resp.json()
+            if data.get("status") != "ok":
+                log.warning(
+                    "NewsAPI error [q='%s']: %s",
+                    query[:40], data.get("message", "?"),
+                )
+                continue
+
+            arts_this_query = data.get("articles", []) or []
+            for art in arts_this_query:
+                pub_date_str = art.get("publishedAt", "")
+                try:
+                    pub_date = dateutil_parser.parse(pub_date_str)
+                    if pub_date.tzinfo is None:
+                        pub_date = pub_date.replace(tzinfo=timezone.utc)
+                except Exception:
+                    pub_date = datetime.now(timezone.utc)
+
+                # Filtro de edad (consistente con fetch_rss): descartar > 48h
+                age_hours = (datetime.now(timezone.utc) - pub_date).total_seconds() / 3600
+                if age_hours > 48:
+                    continue
+
+                source_raw = (art.get("source") or {}).get("name", "")
+                source_norm = _normalize_source_name(source_raw)
+
+                # NewsAPI free tier corta `content` a 200ch. Combinamos description+content
+                # para tener algo más que solo el título.
+                parts = [p for p in (art.get("description"), art.get("content")) if p]
+                body = " ".join(parts)[:8000]
+
+                articles_all.append({
+                    "url": art.get("url", "") or "",
+                    "title": art.get("title", "") or "",
+                    "body": body,
+                    "pub_date": pub_date,
+                    "source_name": source_norm,
+                })
+            any_success = True
+            kept_so_far = len(articles_all)
+            log.info(
+                "NewsAPI OK [q='%s']: %d articulos en respuesta, %d retenidos tras filtro 48h",
+                query[:40], len(arts_this_query), kept_so_far,
+            )
+        except requests.HTTPError as exc:
+            log.warning("NewsAPI HTTP error [q='%s']: %s", query[:40], exc)
+        except Exception as exc:
+            log.warning("NewsAPI FAIL [q='%s']: %s", query[:40], exc)
+
+    if any_success:
+        update_source_health(state, "newsapi_org", True)
+    else:
+        update_source_health(state, "newsapi_org", False)
+
+    return articles_all

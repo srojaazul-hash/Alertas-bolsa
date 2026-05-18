@@ -357,6 +357,53 @@ def _run_source_health_tests() -> None:
 
 
 # ---------------------------------------------------------------------------
+# Tests del fetcher de NewsAPI (NA — NewsAPI)
+# ---------------------------------------------------------------------------
+
+def _run_newsapi_tests() -> None:
+    """
+    Tests del fetcher de NewsAPI (2026-05-17).
+
+    No prueba la API en sí (requiere key + red). Prueba:
+      1. _normalize_source_name maneja los casos comunes y edge cases
+      2. fetch_news_api es fail-safe cuando falta api_key o queries
+    """
+    from framework.sources import _normalize_source_name, fetch_news_api
+
+    log.info("--- Tests NA: NewsAPI source normalization y fail-safe ---")
+
+    # Caso 1: nombres normales de medios
+    cases = [
+        ("Reuters",                    "reuters"),
+        ("BBC News",                   "bbc_news"),
+        ("South China Morning Post",   "south_china_morning_post"),
+        ("Mining.com",                 "mining_com"),
+        ("The Wall Street Journal",    "the_wall_street_journal"),
+        ("",                           "newsapi_unknown"),
+        (None,                         "newsapi_unknown"),
+        ("  Bloomberg  ",              "bloomberg"),
+        ("CNBC TV-18",                 "cnbc_tv_18"),
+    ]
+    for raw, expected in cases:
+        got = _normalize_source_name(raw)
+        assert got == expected, f"NA normalize falla: input='{raw}' got='{got}' expected='{expected}'"
+        log.info("NA normalize ok: '%s' -> '%s'", raw, got)
+
+    # Caso 2: fail-safe sin api_key
+    state: dict = {"source_health": {}}
+    result = fetch_news_api(state, None, "", ["foo"])  # session=None irrelevante si bails out
+    assert result == [], "NA fail-safe falló: sin api_key debería devolver []"
+    log.info("NA fail-safe ok: sin api_key devuelve []")
+
+    # Caso 3: fail-safe sin queries
+    result = fetch_news_api(state, None, "fake_key", [])
+    assert result == [], "NA fail-safe falló: sin queries debería devolver []"
+    log.info("NA fail-safe ok: sin queries devuelve []")
+
+    log.info("--- FIN tests NA ---")
+
+
+# ---------------------------------------------------------------------------
 # Suite completa
 # ---------------------------------------------------------------------------
 
@@ -406,6 +453,9 @@ def run_gemini_test(cfg: AssetConfig, gemini_client=None) -> None:
 
     # --- 3. Tests del fix DEGRADED-cooldown en source_health ---
     _run_source_health_tests()
+
+    # --- 4. Tests del fetcher de NewsAPI ---
+    _run_newsapi_tests()
 
     log.info("=== FIN TEST ===")
 

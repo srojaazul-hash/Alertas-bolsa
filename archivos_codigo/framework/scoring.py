@@ -81,6 +81,12 @@ class AssetConfig:
     # Categorías que no decaen por edad (REG, sanciones — la tensión persiste)
     no_decay_categories: set = field(default_factory=set)
 
+    # NewsAPI.org queries (opcional). Si presente y NEWSAPI_KEY está configurado
+    # en el entorno, `fetch_news_api()` se invoca con estas queries en cada run.
+    # Cada query gasta 1 request del cuota del free tier (100 req/día). 3 queries
+    # × 3 runs/día = 9 req/día, muy dentro del límite.
+    news_api_queries: list = field(default_factory=list)
+
 
 # ---------------------------------------------------------------------------
 # Utilidades de texto (sin estado, sin config)
