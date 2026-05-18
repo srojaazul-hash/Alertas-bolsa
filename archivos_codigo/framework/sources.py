@@ -405,6 +405,14 @@ def fetch_news_api(
 # Diferencia clave vs NewsAPI: real-time (sin delay de 24h del free tier).
 _GNEWS_ENDPOINT = "https://gnews.io/api/v4/search"
 
+# Pausa entre queries del mismo run. El free tier de GNews tiene rate limit
+# por minuto/segundo además del límite diario de 100/día. En pruebas reales
+# (2026-05-17) 3 queries consecutivas sin pausa devolvieron HTTP 429 en las
+# queries 2 y 3 — solo la primera pasó. 2s entre queries da margen seguro.
+# NewsAPI no requiere esto (probado empíricamente: 3 queries consecutivas sin
+# pausa funcionan sin 429).
+_GNEWS_INTER_QUERY_SLEEP = 2.0
+
 
 def fetch_gnews(
     state: dict,
@@ -451,7 +459,11 @@ def fetch_gnews(
     articles_all: list = []
     any_success = False
 
-    for query in queries:
+    for i, query in enumerate(queries):
+        # Pausa entre queries (no antes de la primera) para no chocar con el
+        # rate limit por minuto/segundo del free tier de GNews. Ver constante.
+        if i > 0:
+            time.sleep(_GNEWS_INTER_QUERY_SLEEP)
         try:
             resp = session.get(
                 _GNEWS_ENDPOINT,
