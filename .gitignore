@@ -1,6 +1,7 @@
 # Secrets
 .env
 Hoja de ruta proyecto.md
+bitacora_desarrollo.md
 
 # Runtime state
 state.json

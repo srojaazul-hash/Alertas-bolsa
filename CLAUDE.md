@@ -80,6 +80,8 @@ ACLED_KEY=your-acled-key        # free registration at developer.acleddata.com
 ACLED_EMAIL=you@gmail.com
 BOT_EMAIL=you@gmail.com         # used in User-Agent header
 GEMINI_API_KEY=your-gemini-key  # Google AI Studio → aistudio.google.com/apikey
+NEWSAPI_KEY=your-newsapi-key    # newsapi.org free tier (100 req/día, delay 24h)
+GNEWS_KEY=your-gnews-key        # gnews.io free tier (100 req/día, real-time)
 ```
 
 State is persisted in `~/cobalt-alert/state.json`. Logs rotate daily at `~/cobalt-alert/logs/scorer.log` (7-day retention).
@@ -120,15 +122,21 @@ DRC Copperbelt (GEO-01, ~70% world production) has the highest weight (1.80). Ch
 
 ### Source processing order
 
-Sources run **sequentially** (no threading — shared CPU constraint). Phase 4 sources are skipped if the score already reaches NARANJA after phases 1–3.
+Sources run **sequentially** (no threading — shared CPU constraint). El pipeline tiene 4 vectores de captura, en orden:
 
-1. Reuters Africa/Commodities, Mining.com cobalt, ACLED, ReliefWeb
-2. AllAfrica, RFI (FR), Daily Maverick, Club Mozambique, East African, Zambia Reports
-3. Port portals: Transnet Durban, TPA Tanzania, CFM Mozambique
-4. Supplementary: GDACS, Mining Weekly, USGS, VOA Africa, Reuters China *(skipped if score already NARANJA+)*
-5. Google News RSS searches (EN + FR)
+1. **RSS** (~26 fuentes): mining specialist (Northern Miner, Mining.com — bloqueada por WAF de GCP, Australian Mining, Mining Technology), African regional (AllAfrica, BBC Africa, RFI Afrique, Club Mozambique, Lusaka Times), commodity-general (CNBC Commodities, OilPrice, Investing.com), Indonesia/Asia (Antara, GNews Indonesia), institucional (GDACS, ReliefWeb DRC, Cobalt Institute). Algunas con `full_text=True` para descargar la página completa (vs solo summary del RSS).
+2. **Scraping** (3 portales): Transnet Durban, TPA Tanzania, CFM Mozambique.
+3. **ACLED API**: eventos de conflicto en DRC/Zambia/Tanzania/Mozambique/South Africa.
+4. **NewsAPI.org** (3 queries cobalto-específicas): cobalto explícito + signals, geos cobalto-críticos + events, sustitutos batería. Free tier 100 req/día, delay de 24h, `full_text=True` para superar el truncado de 200ch.
+5. **GNews.io** (3 queries paralelas a NewsAPI): mismo diseño pero **real-time** (sin delay 24h). Free tier 100 req/día separados. Sleep 2s entre queries por rate limit per-segundo. `full_text=True` también.
 
-Source credibility modifiers: 1.00 (Reuters, official ports) → 0.85 (regional African media) → 0.50 (Google News aggregator) → 0.40 (social). Three independent sources ≥0.80 on the same event apply a ×1.30 confirmation multiplier.
+Tras la captura, **dedup cross-run estable** via `_normalize_url`: strip de query/fragment/trailing slash/www → mismo artículo desde GNews y NewsAPI colapsa al mismo URL canónico, no se scorea dos veces.
+
+Source credibility modifiers: 1.00 (Reuters/Bloomberg vía APIs, ACLED, GDACS, port portals) → 0.85 (regional African media, AU mining) → 0.65–0.75 (commodities financieras generales) → 0.50 (Google News aggregator). Three independent sources ≥0.80 on the same event apply a ×1.30 confirmation multiplier.
+
+**Observabilidad por hit**: cada artículo que produce hits genera una línea `HIT [...] source=X geo=Y n=N | keyword(category,signed_score), ...` en `~/cobalt-alert/logs/scorer.log`. Esencial para auditoría sin scripts forenses.
+
+**Gemini sigue desactivado en producción**: la lógica de Path A/B existe en `framework/llm_validator.py` pero requiere `pip install google-genai` en el venv. Activación pendiente — esperando volumen de hits ≥3/run consistente para validar utilidad (paso 5 del plan original).
 
 ### Spec documents (not code)
 
@@ -151,8 +159,10 @@ When modifying scoring behavior:
 
 Two test modes available via env flags:
 
-- **`COBALT_TEST_MODE=1`** — bypasses RSS fetching and runs a synthetic test suite instead. Currently covers 9 synthetic articles + 4 aggregate-clustering test cases, each designed to detect a specific class of bug (find-first-occurrence, FP-global, threshold ordering, sign-on-negation, UTC-bucket boundary). Each historical fix is locked in by its own test article.
+- **`COBALT_TEST_MODE=1`** — bypasses RSS/API fetching and runs the synthetic test suite. Cubre actualmente: 10 artículos sintéticos (cada uno locking-in un bug histórico: A/B/C/D/...) + 4 casos de clustering temporal (F) + 4 casos de cooldown DEGRADED (SH) + 13 casos de NewsAPI (NA: helper, fail-safe, AssetConfig) + 5 casos de GNews (GN: idem) + 9 casos de URL normalization (UN). **Total 45 tests sintéticos.** Cuando alguien fixea un bug, debe añadir un caso aquí.
 - **`COBALT_TEST_NO_GEMINI=1`** — skips real Gemini API calls (preserves free-tier daily quota during iteration). Combine with `COBALT_TEST_MODE=1` for offline regression testing.
+
+**Importante: `COBALT_TEST_MODE=1` NO escribe al log de producción.** Solo loguea a consola. El archivo `~/cobalt-alert/logs/scorer.log` queda intacto cuando se corren tests durante desarrollo. Esto evita contaminar el histórico del cron real con líneas de tests sintéticos.
 
 Default iteration command (run from `archivos_codigo/`):
 ```bash

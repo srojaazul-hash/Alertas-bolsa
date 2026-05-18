@@ -335,6 +335,8 @@ Ciclo de mejora:
 ### Cuentas free tier
 - ✅ Google AI Studio: aistudio.google.com/apikey
 - ✅ ACLED: developer.acleddata.com
+- ✅ NewsAPI.org: newsapi.org (100 req/día, delay 24h)
+- ✅ GNews.io: gnews.io (100 req/día, real-time)
 - ⏳ Alpaca: alpaca.markets/signup (Fase 4)
 - ✅ GitHub
 - ✅ GCP
@@ -361,10 +363,18 @@ Ciclo de mejora:
 - [x] Limpieza de fuentes confirmadamente rotas (6 eliminadas, 3 renombradas)
 - [x] Fix del bug DEGRADED-forever en `framework/state.py`
 - [x] Tests sintéticos del fix DEGRADED (4 casos SH-1 a SH-4)
-- [ ] Triaje individual con curl de fuentes sospechosas (kitco, miningmx, mining_technology, energy_storage_news)
-- [ ] Investigación de fuentes cobalto-específicas alternativas (≥3 nuevas)
-- [ ] ≥3 fuentes activas entregando ≥10 artículos cobalto-relevantes/semana
+- [x] +9 fuentes nuevas curl-tested (cobalt_institute, australian_mining, cnbc_commodities, resource_world, ns_energy, oilprice_main, investing_commodities, +2 descartadas tras forensic audit)
+- [x] **Integración NewsAPI.org** como fetcher genérico del framework (3 queries cobalto, full_text=True)
+- [x] **Integración GNews.io** como segundo API (real-time, complementario, sleep 2s entre queries por rate limit)
+- [x] **Observabilidad por hit**: log INFO con keyword/categoría/score/geo por cada artículo que dispara (`HIT [...]` en `scorer.log`)
+- [x] **URL normalization** para dedup estable cross-API (`_normalize_url` strip query/fragment/www/slash + backwards-compat con state.json viejo)
+- [x] **Gap militar deployment** cubierto en GEO-CONFLICT: +20 keywords EN/FR/ES/PT + artículo sintético #10 bloquea regresión
+- [x] Fix logging: COBALT_TEST_MODE=1 ya NO contamina scorer.log de producción (solo consola en modo test)
+- [ ] Observación durante 2-3 días naturales del cron para validar: (a) si FP de "port strike" se repite y justifica `requires_context=True`, (b) volumen real de hits/día, (c) si GNews trae artículos cuando NewsAPI tiene delay
+- [ ] **Dedup robusto cross-run con title similarity** — la URL normalization no cubre el caso de "mismo contenido republicado en otro dominio". Anotado para implementar tras 1-2 semanas de datos
+- [ ] Triaje individual con curl de fuentes sospechosas si persisten en 0 entradas
 - [ ] Hits/día reales ≥1 en promedio durante 7 días consecutivos
+- [ ] Decisión sobre activar Gemini en producción (espera a volumen ≥3 hits/run consistente)
 
 ### Fase 2 — Cobre
 - [ ] `assets/copper/dictionary.py` con ~100 keywords
@@ -407,3 +417,4 @@ Ciclo de mejora:
 - **2026-05-16**: Auditoría `score_article` completada (6/6 puntos). Tests de regresión cubren todos los fixes. Framework listo para empezar Fase 1.
 - **2026-05-17**: Fase 1 ejecutada. `main_scorer.py` (2256 líneas, monolito) extraído en `archivos_codigo/framework/` (genérico, ~1037 líneas) + `archivos_codigo/assets/cobalt/` (datos + orquestador, ~1328 líneas) + `archivos_codigo/tests/synthetic_articles.py` (~355 líneas). `AssetConfig` dataclass encapsula los parámetros del asset; cada función del framework lo recibe en lugar de leer globals. 9/9 artículos sintéticos + 4/4 clusters pasan con los valores numéricos exactos del monolito (signed_sum=+1.22 para Art 9, SSC=23.40 para F3, etc.). Entry point nuevo: desde `archivos_codigo/`, `python -m assets.cobalt.main`. La carpeta original `archivos codigo` renombrada a `archivos_codigo` (sin espacio) para que sea un identificador Python válido; todo el código nuevo consolidado dentro. `main_scorer.py` movido a `archivos_codigo/legacy/` como referencia. Falta sincronizar cron en VM.
 - **2026-05-17 (tarde)**: Auditoría del pipeline de fuentes en VM tras corte → 0 hits durante días. Hallazgo: el scoring no está roto, las fuentes sí. 13 de 25 fuentes confirmadamente rotas (mining.com bloqueada por AWS WAF a IPs de GCP, Google News RSS muerto sistémicamente desde 2024, varias mining specialty con feeds inválidos). Bug descubierto en `framework/state.py`: las fuentes DEGRADED nunca se reintentaban (saltadas indefinidamente). Cuatro commits: extracción Fase 1, reorg dentro de `archivos_codigo/`, fix DEGRADED-cooldown (con 4 tests sintéticos SH-1 a SH-4), cleanup de config (6 fuentes eliminadas, 3 renombradas porque "reuters_*" nunca fueron Reuters). Fase 1.5 añadida al roadmap: investigar y añadir ≥3 fuentes cobalto-específicas que funcionen en 2026.
+- **2026-05-17/18 (sesión larga)**: Saneamiento completo de Fase 1.5. **+9 fuentes RSS** confirmadas tras curl-test desde IP de GCP (Cobalt Institute, Australian Mining, CNBC Commodities, Resource World, NS Energy, OilPrice, Investing.com, etc.) — 2 descartadas tras forensic audit con feedparser (cleantechnica publica <1/20 días, radio_okapi devuelve archivo histórico de 27 días). **Integración NewsAPI.org** como fetcher genérico (3 queries Boolean cobalto-específicas, free tier 100/día, delay 24h, full_text=True para superar truncado de 200ch). **Integración GNews.io** como segundo API en paralelo (real-time, 100 req/día separados, sleep 2s entre queries por rate limit per-segundo del free tier). **Observabilidad por hit** añadida: cada artículo que dispara genera log INFO con keyword/categoría/score/geo. **URL normalization** para dedup cross-API: `_normalize_url` strip query/fragment/www/slash, evita inflación de 50% en `aggregate_scores` cuando GNews día 1 + NewsAPI día 2 traen el mismo artículo con URLs ligeramente distintas. **Gap militar deployment** cubierto en GEO-CONFLICT (+20 keywords EN/FR/ES/PT, artículo sintético #10). **Fix logging**: COBALT_TEST_MODE=1 ahora solo escribe a consola, no contamina scorer.log de producción. Total **45 tests sintéticos** verdes. Primer hit real detectado en cron natural (artículo de protestas Kenia que disparó `port strike` LOG-PORT por incidental geo+keyword sin anchor — score 11.34, VERDE, no cruzó umbral — documentado como ejemplo del trade-off `requires_context=False`). **Decisiones rechazadas con explicación**: no relajar umbrales por motivación, no scraping directo de Google (ToS + bloqueo IP), no activar Gemini sin tráfico, no title similarity cross-run hasta tener datos reales. Estado: cron entrega 1-3 hits/run en condiciones favorables, observable end-to-end, listo para evaluación de 2-3 días naturales antes de pasar a Gemini activo.
