@@ -107,6 +107,47 @@ archivos_codigo/
 
 ---
 
+### FASE 1.5 — Saneamiento del pipeline de fuentes  *(estimado: 4-8h)*
+
+**Objetivo**: tener al menos 3 fuentes cobalto-específicas activas que entreguen contenido relevante de forma consistente. Sin esto, Fase 2-5 construyen sobre datos vacíos.
+
+**Por qué surgió esta fase (audit 2026-05-17)**: Auditoría sistemática de las 25 fuentes RSS reveló:
+- **13 fuentes confirmadamente rotas** (HTTP error, feed inválido, dominio bloqueado, Google News RSS muerto)
+- **121-145 artículos en 48h**, de los cuales **solo 1 menciona "cobalt"** (0.7%)
+- **0 hits en producción** durante varios días consecutivos — comportamiento correcto del scoring sobre input de basura
+- Bug descubierto y corregido: las fuentes DEGRADED nunca se reintentaban (commit independiente)
+
+**Hallazgos específicos sobre fuentes muertas**:
+- `mining.com` bloquea con HTTP 403 toda la IP de GCP (AWS WAF) — no recuperable client-side
+- Google News RSS devuelve vacío para búsquedas que antes funcionaban (Google restringe desde 2024)
+- Varias fuentes "Tier 1" del config original (Northern Miner, IM Mining, Energy Storage News) responden HTTP 200 pero con 0 entradas o feed malformado
+
+**Tareas concretas**:
+- [x] Limpieza del config: eliminar 6 fuentes confirmadamente rotas, renombrar 3 con nombres engañosos (commit `cleanup config de fuentes RSS`)
+- [x] Fix del bug DEGRADED-forever en `framework/state.py` (commit `Fix: source_health DEGRADED puede reintentarse`)
+- [ ] Probar individualmente con curl: `kitco` (im-mining.com), `miningmx`, `mining_technology`, `energy_storage_news`. Eliminar o mantener según resultado real.
+- [ ] Investigar feeds RSS activos en 2026 para cobalto. Candidatos a evaluar:
+  - Cobalt Institute (cobaltinstitute.org) — sin RSS público confirmado, ver si hay
+  - Fastmarkets cobalt — paywall probable, ver si tienen newsletter gratis
+  - S&P Global Commodity Insights — paywall, ver alternativas
+  - Argus Media — paywall
+  - Benchmark Mineral Intelligence — paywall pero tienen blog público
+  - Bloomberg via NewsAPI.org (free tier 100 req/día)
+  - Reuters business RSS oficial (si todavía existe sin paywall)
+- [ ] Decidir si justifica cambiar de proveedor de VM (Hetzner / OVH) para sortear bloqueos por IP-range de GCP. Coste vs beneficio.
+- [ ] Añadir 5-10 fuentes nuevas al config con credibilidad calibrada
+- [ ] Test de salud automático: añadir log de "fuentes muertas hoy" en cada run del cron, con umbral de aviso si >30% del config falla
+- [ ] Considerar implementación de `framework/sources.py` opcional con TLS fingerprint de browser (`curl_cffi` o equivalente) para feeds que filtran por TLS
+
+**Criterio de éxito**: 
+- ≥3 fuentes cobalto-específicas activas entregando ≥10 artículos cobalto-relevantes/semana en agregado
+- Hits/día reales ≥1 en promedio durante 7 días consecutivos
+- ≥80% del config en estado OK (no DEGRADED) durante 7 días consecutivos
+
+**Anti-patrón a evitar**: investigar fuentes durante semanas sin avanzar al siguiente paso. Si tras 8h de research no se han encontrado ≥3 fuentes nuevas viables, **bajar el estándar** (aceptar fuentes con cobertura cobalto incidental pero alto volumen, como Reuters business general) y avanzar — siempre se pueden refinar después con paper trading real (Fase 6).
+
+---
+
 ### FASE 2 — Segundo asset: COBRE  *(estimado: 1 semana)*
 
 **Por qué cobre específicamente**:
@@ -315,6 +356,15 @@ Ciclo de mejora:
 - [x] Tests sintéticos cobalto siguen pasando 9/9 (+ 4 casos de clustering)
 - [ ] Cron en VM apunta al nuevo entry point
 
+### Fase 1.5 — Saneamiento de fuentes
+- [x] Limpieza de fuentes confirmadamente rotas (6 eliminadas, 3 renombradas)
+- [x] Fix del bug DEGRADED-forever en `framework/state.py`
+- [x] Tests sintéticos del fix DEGRADED (4 casos SH-1 a SH-4)
+- [ ] Triaje individual con curl de fuentes sospechosas (kitco, miningmx, mining_technology, energy_storage_news)
+- [ ] Investigación de fuentes cobalto-específicas alternativas (≥3 nuevas)
+- [ ] ≥3 fuentes activas entregando ≥10 artículos cobalto-relevantes/semana
+- [ ] Hits/día reales ≥1 en promedio durante 7 días consecutivos
+
 ### Fase 2 — Cobre
 - [ ] `assets/copper/dictionary.py` con ~100 keywords
 - [ ] Fuentes RSS de cobre identificadas (≥ 8)
@@ -355,3 +405,4 @@ Ciclo de mejora:
 
 - **2026-05-16**: Auditoría `score_article` completada (6/6 puntos). Tests de regresión cubren todos los fixes. Framework listo para empezar Fase 1.
 - **2026-05-17**: Fase 1 ejecutada. `main_scorer.py` (2256 líneas, monolito) extraído en `archivos_codigo/framework/` (genérico, ~1037 líneas) + `archivos_codigo/assets/cobalt/` (datos + orquestador, ~1328 líneas) + `archivos_codigo/tests/synthetic_articles.py` (~355 líneas). `AssetConfig` dataclass encapsula los parámetros del asset; cada función del framework lo recibe en lugar de leer globals. 9/9 artículos sintéticos + 4/4 clusters pasan con los valores numéricos exactos del monolito (signed_sum=+1.22 para Art 9, SSC=23.40 para F3, etc.). Entry point nuevo: desde `archivos_codigo/`, `python -m assets.cobalt.main`. La carpeta original `archivos codigo` renombrada a `archivos_codigo` (sin espacio) para que sea un identificador Python válido; todo el código nuevo consolidado dentro. `main_scorer.py` movido a `archivos_codigo/legacy/` como referencia. Falta sincronizar cron en VM.
+- **2026-05-17 (tarde)**: Auditoría del pipeline de fuentes en VM tras corte → 0 hits durante días. Hallazgo: el scoring no está roto, las fuentes sí. 13 de 25 fuentes confirmadamente rotas (mining.com bloqueada por AWS WAF a IPs de GCP, Google News RSS muerto sistémicamente desde 2024, varias mining specialty con feeds inválidos). Bug descubierto en `framework/state.py`: las fuentes DEGRADED nunca se reintentaban (saltadas indefinidamente). Cuatro commits: extracción Fase 1, reorg dentro de `archivos_codigo/`, fix DEGRADED-cooldown (con 4 tests sintéticos SH-1 a SH-4), cleanup de config (6 fuentes eliminadas, 3 renombradas porque "reuters_*" nunca fueron Reuters). Fase 1.5 añadida al roadmap: investigar y añadir ≥3 fuentes cobalto-específicas que funcionen en 2026.
