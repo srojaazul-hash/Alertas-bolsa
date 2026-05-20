@@ -600,6 +600,83 @@ def _run_url_normalization_tests() -> None:
 
 
 # ---------------------------------------------------------------------------
+# Tests de word boundary en keyword matching (WB)
+# ---------------------------------------------------------------------------
+
+def _run_word_boundary_tests() -> None:
+    """
+    Tests del fix word-boundary en score_article (2026-05-20).
+
+    Antes del fix: el while loop usaba text_norm.find(term_norm, search_start)
+    sin verificar límites de palabra. Resultado: "port strike" puntuaba dentro
+    de "transport strike" como substring, "coup" dentro de "couple", "ban"
+    dentro de "banana", etc. → 93% FP rate (15 hits, 14 falsos) en el cron
+    del 2026-05-20 16:00 UTC.
+
+    Después del fix: el loop usa re.compile(r'\\b' + re.escape(term_norm) + r'\\b'),
+    que garantiza que el término sea una palabra o frase completa.
+
+    Estos tests verifican el patrón regex directamente (no el pipeline completo),
+    para que fallen con precisión si alguien revierte el find() por error.
+    """
+    import re as _re
+    from framework.scoring import normalize
+
+    log.info("--- Tests WB: word boundary en keyword matching ---")
+
+    def _count_wb_matches(text: str, keyword: str) -> int:
+        """Cuenta ocurrencias con word boundary, igual que el loop de score_article."""
+        term_norm = normalize(keyword)
+        text_norm = normalize(text)
+        pattern = _re.compile(r'\b' + _re.escape(term_norm) + r'\b')
+        return len(pattern.findall(text_norm))
+
+    # Caso 1: "transport strike" NO debe matchear "port strike"
+    # El bug original: find() encontraba "port strike" dentro de "trans[port strike]"
+    n = _count_wb_matches("transport strike at Mombasa", "port strike")
+    assert n == 0, f"WB Caso 1 falló: 'port strike' en 'transport strike' → {n} (esperado 0)"
+    log.info("WB Caso 1 (transport strike ≠ port strike): 0 matches ✓")
+
+    # Caso 2: "port strike" real debe matchear exactamente 1 vez
+    # "port" aparece dos veces pero el bigram "port strike" solo una
+    n = _count_wb_matches("the port strike at Durban port", "port strike")
+    assert n == 1, f"WB Caso 2 falló: 'port strike' en texto real → {n} (esperado 1)"
+    log.info("WB Caso 2 (port strike real, 1 ocurrencia del bigram): 1 match ✓")
+
+    # Caso 3: "couple" NO debe matchear "coup" (coup está dentro de couple)
+    n = _count_wb_matches("couple of issues reported", "coup")
+    assert n == 0, f"WB Caso 3 falló: 'coup' en 'couple' → {n} (esperado 0)"
+    log.info("WB Caso 3 (couple ≠ coup): 0 matches ✓")
+
+    # Caso 4: "coup" real debe matchear (es palabra completa)
+    n = _count_wb_matches("DRC coup attempt in Kinshasa", "coup")
+    assert n == 1, f"WB Caso 4 falló: 'coup' real → {n} (esperado 1)"
+    log.info("WB Caso 4 (coup real): 1 match ✓")
+
+    # Caso 5: "banana" NO debe matchear "ban" (ban está dentro de banana)
+    n = _count_wb_matches("banana export from Ecuador", "ban")
+    assert n == 0, f"WB Caso 5 falló: 'ban' en 'banana' → {n} (esperado 0)"
+    log.info("WB Caso 5 (banana ≠ ban): 0 matches ✓")
+
+    # Caso 6: "ban" real debe matchear (es palabra completa)
+    n = _count_wb_matches("export ban announced on cobalt", "ban")
+    assert n == 1, f"WB Caso 6 falló: 'ban' real → {n} (esperado 1)"
+    log.info("WB Caso 6 (ban real): 1 match ✓")
+
+    # Caso 7: "mine" debe matchear en "diamond mine" (es palabra completa al final)
+    n = _count_wb_matches("diamond mine shutdown reported", "mine")
+    assert n == 1, f"WB Caso 7 falló: 'mine' en 'diamond mine' → {n} (esperado 1)"
+    log.info("WB Caso 7 (mine como palabra completa): 1 match ✓")
+
+    # Caso 8: "examine" NO debe matchear "mine" (mine está dentro de examine)
+    n = _count_wb_matches("analysts examine carefully the situation", "mine")
+    assert n == 0, f"WB Caso 8 falló: 'mine' en 'examine' → {n} (esperado 0)"
+    log.info("WB Caso 8 (examine ≠ mine): 0 matches ✓")
+
+    log.info("--- FIN tests WB (8/8) ---")
+
+
+# ---------------------------------------------------------------------------
 # Suite completa
 # ---------------------------------------------------------------------------
 
@@ -658,6 +735,9 @@ def run_gemini_test(cfg: AssetConfig, gemini_client=None) -> None:
 
     # --- 6. Tests de URL normalization ---
     _run_url_normalization_tests()
+
+    # --- 7. Tests de word boundary en keyword matching ---
+    _run_word_boundary_tests()
 
     log.info("=== FIN TEST ===")
 

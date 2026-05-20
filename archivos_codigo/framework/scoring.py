@@ -12,6 +12,7 @@ Fix history preservado (ver `scoring_rules.md` para spec):
 """
 
 import logging
+import re
 import unicodedata
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
@@ -256,12 +257,21 @@ def score_article(article: dict, cfg: AssetConfig) -> list:
         # Fix punto A: recolectar TODAS las ocurrencias válidas (no solo la primera).
         # Una primera mención negada no debe bloquear menciones positivas posteriores.
         # Fix punto B: el filtro FP se evalúa por ocurrencia, no global.
+        #
+        # Fix word-boundary (2026-05-20): antes se usaba text_norm.find(term_norm)
+        # que matcheaba substrings sin verificar límites de palabra. Esto causaba
+        # que "port strike" puntuara dentro de "transport strike", "coup" dentro
+        # de "couple", "ban" dentro de "banana", etc. — 93% FP rate en producción.
+        # Ahora se usa un patrón regex \b...\b compilado por keyword, que garantiza
+        # que el término sea una palabra o frase completa en el texto.
+        kw_pattern = re.compile(r'\b' + re.escape(term_norm) + r'\b')
         valid_occurrences = []
         search_start = 0
         while True:
-            pos = text_norm.find(term_norm, search_start)
-            if pos == -1:
+            m = kw_pattern.search(text_norm, search_start)
+            if m is None:
                 break
+            pos = m.start()
             word_pos = len(text_norm[:pos].split())
 
             if requires_context:
@@ -269,18 +279,18 @@ def score_article(article: dict, cfg: AssetConfig) -> list:
                 window_end = min(len(words), word_pos + context_window)
                 window_text = " ".join(words[window_start:window_end])
                 if not has_anchor(window_text, cfg.anchor_terms):
-                    search_start = pos + len(term_norm)
+                    search_start = m.end()
                     continue
             if term_norm == "coup" and not has_coup_context(words, word_pos, cfg.coup_context_terms, window=40):
-                search_start = pos + len(term_norm)
+                search_start = m.end()
                 continue
             if occurrence_is_false_positive(text_norm, pos, term_norm, category, cfg.false_positive_filters):
-                search_start = pos + len(term_norm)
+                search_start = m.end()
                 continue
 
             negated = has_negation_near(words, word_pos, cfg.all_negation_terms, window=5)
             valid_occurrences.append({"word_pos": word_pos, "negated": negated})
-            search_start = pos + len(term_norm)
+            search_start = m.end()
 
         if not valid_occurrences:
             continue
