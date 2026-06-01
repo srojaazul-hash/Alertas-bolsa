@@ -677,6 +677,60 @@ def _run_word_boundary_tests() -> None:
 
 
 # ---------------------------------------------------------------------------
+# Tests de word boundary en detect_geo / has_anchor (GB — geo boundary)
+# ---------------------------------------------------------------------------
+
+def _run_geo_anchor_boundary_tests(cfg: AssetConfig) -> None:
+    """
+    Tests del fix word-boundary en detect_geo y has_anchor (2026-06-01).
+
+    Bug observado en producción (log 7 días): artículos sin relación con la DRC
+    obtenían geo=GEO-01 (peso 1.80) y puntuaban como falsos positivos. Causa
+    raíz: detect_geo y has_anchor usaban `normalize(t) in text_norm` (substring),
+    el mismo bug que el loop de score_article tenía antes del fix del 2026-05-20.
+
+    Caso estrella: el término geográfico "beni" (ciudad de la DRC en GEO-01)
+    matcheaba dentro de "benin" (país, irrelevante). Un artículo "Bénin-Niger"
+    se etiquetaba como GEO-01 y un "coup d'etat" (peso 5.0, requires_context
+    False) puntuaba 14.4 sobre geo falsa.
+
+    Tras el fix, detect_geo/has_anchor exigen palabra completa.
+    Se testea contra el cfg real (GEOGRAPHIC_TERMS/ANCHOR_TERMS de cobalto)
+    para reflejar producción.
+    """
+    from framework.scoring import detect_geo, has_anchor, normalize
+
+    log.info("--- Tests GB: word boundary en detect_geo / has_anchor ---")
+
+    # Caso 1 (REGRESIÓN PRINCIPAL): "benin" NO debe activar GEO-01 vía "beni"
+    geos = detect_geo(normalize("Benin Niger relations summit in West Africa"), cfg.geographic_terms)
+    assert "GEO-01" not in geos, f"GB Caso 1 falló: 'benin' activó GEO-01 vía substring 'beni' → {geos}"
+    log.info("GB Caso 1 (benin ≠ GEO-01 por 'beni'): geos=%s ✓", geos)
+
+    # Caso 2 (CONTROL POSITIVO): "Beni" como palabra real SÍ activa GEO-01
+    geos = detect_geo(normalize("Heavy fighting reported in Beni and Goma this week"), cfg.geographic_terms)
+    assert "GEO-01" in geos, f"GB Caso 2 falló: 'Beni'/'Goma' reales no activaron GEO-01 → {geos}"
+    log.info("GB Caso 2 (Beni/Goma reales → GEO-01): geos=%s ✓", geos)
+
+    # Caso 3 (CONTROL POSITIVO): término geo claro de DRC activa GEO-01
+    geos = detect_geo(normalize("cobalt mining halted near Kolwezi in the DRC Copperbelt"), cfg.geographic_terms)
+    assert "GEO-01" in geos, f"GB Caso 3 falló: 'Kolwezi'/'DRC' no activaron GEO-01 → {geos}"
+    log.info("GB Caso 3 (Kolwezi/DRC → GEO-01): geos=%s ✓", geos)
+
+    # Caso 4 (has_anchor POSITIVO): ancla como palabra completa se detecta
+    assert has_anchor(normalize("global cobalt supply tightens"), cfg.anchor_terms), \
+        "GB Caso 4 falló: ancla 'cobalt' no detectada como palabra completa"
+    log.info("GB Caso 4 (has_anchor detecta 'cobalt' palabra completa): ✓")
+
+    # Caso 5 (has_anchor NEGATIVO): texto sin ancla cobalto no debe anclar
+    assert not has_anchor(normalize("political tension rises across the region"), cfg.anchor_terms), \
+        "GB Caso 5 falló: texto sin cobalto reportó ancla"
+    log.info("GB Caso 5 (texto sin cobalto → sin ancla): ✓")
+
+    log.info("--- FIN tests GB (5/5) ---")
+
+
+# ---------------------------------------------------------------------------
 # Suite completa
 # ---------------------------------------------------------------------------
 
@@ -738,6 +792,9 @@ def run_gemini_test(cfg: AssetConfig, gemini_client=None) -> None:
 
     # --- 7. Tests de word boundary en keyword matching ---
     _run_word_boundary_tests()
+
+    # --- 8. Tests de word boundary en detect_geo / has_anchor ---
+    _run_geo_anchor_boundary_tests(cfg)
 
     log.info("=== FIN TEST ===")
 

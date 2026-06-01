@@ -137,14 +137,30 @@ def tokenize(text: str) -> list:
     return normalize(text).split()
 
 
+def _word_match(term_norm: str, text_norm: str) -> bool:
+    """True si term_norm aparece como palabra/frase completa en text_norm.
+
+    Usa límites de palabra (\\b) en lugar de substring. Sin esto, un término
+    geográfico corto como "beni" (ciudad de la DRC, GEO-01) matchea dentro de
+    "benin" (país, irrelevante), asignando GEO-01 (peso 1.80) a artículos que
+    no tienen nada que ver con cobalto y disparando falsos positivos.
+    Es el mismo bug que se arregló en el loop de score_article (2026-05-20),
+    aquí extendido a detect_geo y has_anchor.
+
+    `re` cachea los patrones compilados internamente, así que llamarlo en
+    bucle con los mismos términos no recompila.
+    """
+    return re.search(r'\b' + re.escape(term_norm) + r'\b', text_norm) is not None
+
+
 # ---------------------------------------------------------------------------
 # Checks dependientes de config
 # ---------------------------------------------------------------------------
 
 def has_anchor(text_norm: str, anchor_terms: list) -> bool:
-    """True si algún término ancla aparece en el texto normalizado."""
+    """True si algún término ancla aparece como palabra completa en el texto."""
     for anchor in anchor_terms:
-        if normalize(anchor) in text_norm:
+        if _word_match(normalize(anchor), text_norm):
             return True
     return False
 
@@ -197,7 +213,7 @@ def detect_geo(text_norm: str, geographic_terms: dict) -> list:
     found: list = []
     for geo_code, terms in geographic_terms.items():
         for t in terms:
-            if normalize(t) in text_norm:
+            if _word_match(normalize(t), text_norm):
                 if geo_code not in found:
                     found.append(geo_code)
                 break
