@@ -707,10 +707,10 @@ def _run_geo_anchor_boundary_tests(cfg: AssetConfig) -> None:
     assert "GEO-01" not in geos, f"GB Caso 1 falló: 'benin' activó GEO-01 vía substring 'beni' → {geos}"
     log.info("GB Caso 1 (benin ≠ GEO-01 por 'beni'): geos=%s ✓", geos)
 
-    # Caso 2 (CONTROL POSITIVO): "Beni" como palabra real SÍ activa GEO-01
-    geos = detect_geo(normalize("Heavy fighting reported in Beni and Goma this week"), cfg.geographic_terms)
-    assert "GEO-01" in geos, f"GB Caso 2 falló: 'Beni'/'Goma' reales no activaron GEO-01 → {geos}"
-    log.info("GB Caso 2 (Beni/Goma reales → GEO-01): geos=%s ✓", geos)
+    # Caso 2 (CONTROL POSITIVO): ciudades reales de la DRC activan GEO-01
+    geos = detect_geo(normalize("Heavy fighting reported in Goma and Bukavu this week"), cfg.geographic_terms)
+    assert "GEO-01" in geos, f"GB Caso 2 falló: 'Goma'/'Bukavu' reales no activaron GEO-01 → {geos}"
+    log.info("GB Caso 2 (Goma/Bukavu reales → GEO-01): geos=%s ✓", geos)
 
     # Caso 3 (CONTROL POSITIVO): término geo claro de DRC activa GEO-01
     geos = detect_geo(normalize("cobalt mining halted near Kolwezi in the DRC Copperbelt"), cfg.geographic_terms)
@@ -727,7 +727,22 @@ def _run_geo_anchor_boundary_tests(cfg: AssetConfig) -> None:
         "GB Caso 5 falló: texto sin cobalto reportó ancla"
     log.info("GB Caso 5 (texto sin cobalto → sin ancla): ✓")
 
-    log.info("--- FIN tests GB (5/5) ---")
+    # Caso 6 (REGRESIÓN log 2026-06-02): "Beni Halba" (tribu de Sudán) NO debe
+    # activar GEO-01. El término "beni" se eliminó de GEO-01 por esta colisión;
+    # el recall real de Beni-DRC se mantiene vía términos que co-aparecen.
+    geos = detect_geo(normalize("Renewed clashes between the Salamat and Beni Halba tribes in Sudan"), cfg.geographic_terms)
+    assert "GEO-01" not in geos, f"GB Caso 6 falló: 'Beni Halba' (Sudán) activó GEO-01 → {geos}"
+    log.info("GB Caso 6 (Beni Halba Sudán ≠ GEO-01): geos=%s ✓", geos)
+
+    # Caso 7: "cfm" (caudal de aire / motores) eliminado de GEO-03B por colisión.
+    # El recall ferroviario de Mozambique se mantiene vía "beira"/"nacala"/"mozambique".
+    geos = detect_geo(normalize("the industrial fan delivers 500 cfm of airflow"), cfg.geographic_terms)
+    assert "GEO-03B" not in geos, f"GB Caso 7 falló: 'cfm' (airflow) activó GEO-03B → {geos}"
+    geos = detect_geo(normalize("cargo rerouted through the Beira corridor in Mozambique"), cfg.geographic_terms)
+    assert "GEO-03B" in geos, f"GB Caso 7 falló: 'Beira/Mozambique' reales no activaron GEO-03B → {geos}"
+    log.info("GB Caso 7 (cfm airflow ≠ GEO-03B; Beira/Mozambique sí): ✓")
+
+    log.info("--- FIN tests GB (7/7) ---")
 
 
 # ---------------------------------------------------------------------------

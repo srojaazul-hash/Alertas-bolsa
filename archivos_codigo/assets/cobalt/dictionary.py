@@ -55,7 +55,11 @@ GEOGRAPHIC_TERMS = {
         "boss mining", "kamoto", "kamoa-kakula",
         "cmoc", "kisanfu", "kfm mine",
         "north kivu", "south kivu", "nord-kivu", "sud-kivu",
-        "goma", "bukavu", "ituri", "beni", "butembo",
+        # "beni" eliminado (2026-06-02): colisiona como palabra entera con
+        # "Beni Halba" (tribu de Sudán, FP confirmado en log del cron) y otros
+        # topónimos "Beni X". El recall real de Beni-DRC (ataques ADF) se
+        # mantiene porque esas noticias co-mencionan "nord-kivu"/"congo"/"butembo".
+        "goma", "bukavu", "ituri", "butembo",
         "copperbelt", "copper belt", "central african copperbelt",
         "republique democratique du congo", "rdc",
         "ceinture cuivriere", "province du lualaba",
@@ -78,7 +82,12 @@ GEOGRAPHIC_TERMS = {
     ],
     "GEO-03B": [
         "mozambique", "beira", "beira corridor", "nacala",
-        "nacala corridor", "cfm", "porto de beira", "porto de nacala",
+        # "cfm" eliminado (2026-06-02): aunque es la sigla de los ferrocarriles
+        # de Mozambique (Caminhos de Ferro de Moçambique), colisiona como palabra
+        # entera con "cubic feet per minute" (caudal de aire) y CFM International
+        # (motores). El recall de la red ferroviaria se mantiene vía
+        # "beira"/"nacala"/"mozambique" que co-aparecen en esas noticias.
+        "nacala corridor", "porto de beira", "porto de nacala",
         "corridor de beira", "corredor de beira",
         "corredor de nacala",
     ],
