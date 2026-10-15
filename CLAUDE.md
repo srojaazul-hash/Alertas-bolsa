@@ -2,27 +2,45 @@
 
 This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
 
-## ⚡ Estado actual del proyecto (última actualización 2026-05-18)
+## ⚡ Estado actual del proyecto (última actualización 2026-10-15)
 
 **Antes de pensar que algo está sin empezar, lee este resumen.** La `Hoja de ruta publica.md` tiene checkboxes en dos secciones (descripción de cada fase + tracking final) que pueden estar desincronizados — siempre cruzar con la sección "Notas / insights acumulados" al final de la roadmap para confirmar lo realmente hecho.
 
 | Fase | Estado | Comentario |
 |---|---|---|
 | **Fase 1** — Extracción de framework | ✅ **COMPLETADA** (2026-05-17) | `archivos_codigo/framework/` + `assets/cobalt/` + `tests/` operativos. Cron VM apunta al nuevo entry point. |
-| **Fase 1.5** — Saneamiento de fuentes | 🔵 **EN CURSO** (mayoría tareas hechas, falta observación 2-3 días naturales) | NewsAPI + GNews integrados. URL normalization activa. Observabilidad de hits implementada. 26 RSS sources tras cleanup. |
+| **Fase 1.5** — Saneamiento de fuentes + precisión del scoring | 🔵 **EN CURSO** | Pipeline completo (26 RSS + scraping + ACLED + NewsAPI + GNews). May–oct: 4 fixes contra falsos positivos. Falta medir ruido residual y decidir `requires_context`. |
 | **Fase 2** — Cobre | ⏳ NO EMPEZADA | Bloqueada hasta cerrar Fase 1.5 |
 | **Fase 3** — Analista LLM | ⏳ NO EMPEZADA | Bloqueada hasta cerrar Fase 1.5 + 2 |
 | **Fase 4** — Paper trading Alpaca | ⏳ NO EMPEZADA | |
 | **Fase 5** — Métricas | ⏳ NO EMPEZADA | |
 | **Fase 6** — Optimización | ⏳ NO EMPEZADA | |
 
-**Gemini en producción**: ❌ desactivado. Free tier disponible pero esperando volumen ≥3 hits/run consistente para validar utilidad sin desperdiciar cuota.
+**Gemini en producción**: ❌ desactivado a propósito. Activarlo ahora taparía con un filtro LLM ruido que debe arreglarse en el scoring.
+
+**Problema central abierto: falsos positivos.** El audit del 2026-10-15 (6 alertas jul–sep + hits de 8–15 oct) dio **~90% de FP**; ninguna alerta NARANJA estaba justificada por señal real. Causas ya corregidas:
+- Substring en keywords: "port strike" dentro de "transport strike" (`854ceb2`)
+- Substring en geo/ancla: "beni" dentro de "benin" → GEO-01 falso (`8a4131e`)
+- Términos geo que colisionan como palabra entera: `beni`, `cfm` (`c663283`)
+- Boilerplate en `full_text`: africanews metía "DRC Ebola outbreak" (lista de vídeos relacionados) en todas sus páginas → GEO-01 falso en casi todo. Ahora solo se extraen `<p>` (`29500d9`)
+
+Causas **sin corregir**: keywords genéricos con `requires_context=False` (`coup d'etat`, `armed conflict`, `flash flood`…) disparan en artículos reales pero no cobalto; un artículo con 2 keywords cuenta como 2 señales; "fuentes independientes" se cuenta por categoría y no por evento.
 
 **Lo que toca AHORA**:
-1. Dejar correr el cron 2-3 días naturales para acumular datos.
-2. Si patrón de falsos positivos aparece (ej. `port strike` disparando sin anchor cobalt en artículos no-cobalto), ajustar keywords específicos con evidencia, no preemptivamente.
-3. Si volumen de hits ≥3/run consistente, activar Gemini (`pip install google-genai` en el venv de la VM).
-4. Cuando Fase 1.5 cierre, arrancar Fase 2 (cobre).
+1. Asegurar que la VM tiene el último código (`cd ~/cobalt-alert && git pull`).
+2. Dejar correr el cron 2-3 días y sacar los hits (comando abajo). Clasificar cada hit como señal/FP igual que en el audit del 2026-10-15.
+3. Con esos datos, decidir `requires_context=True` en keywords genéricos. **Comprobar antes con artículos reales** que no mata señales legítimas (ej. Kabila liderando una alianza armada en RDC).
+4. Una señal por artículo en `aggregate_scores` y "fuentes independientes" por evento.
+5. Solo con tasa de FP < 30% sostenida: activar Gemini y cerrar Fase 1.5. Luego Fase 2 (cobre).
+
+**Comandos de la VM para el diagnóstico**:
+```bash
+# Última ejecución del cron
+awk '/CobaltScorer iniciando/{buf=""} {buf=buf $0 "\n"} END{printf "%s", buf}' ~/cobalt-alert/logs/scorer.log
+# Todos los hits de los ~7 días que retiene el log
+cat ~/cobalt-alert/logs/scorer.log* | grep -E "iniciando|HIT \[|Total articulos|Total hits|SSC=" > ~/hits_export.txt
+```
+El log rota a diario y guarda 7 días. `state.json` → `score_history` guarda los últimos 90 runs (solo agregados).
 
 **NO empezar a refactorizar nada de Fase 1 ni "crear estructura framework/"** — todo eso está hecho. El código está en `archivos_codigo/`.
 
@@ -56,7 +74,7 @@ If they ever contradict, the public Hoja de ruta wins and CLAUDE.md should be up
 | `archivos_codigo/framework/` | ✅ | Generic core: scoring, aggregator, sources, state, llm_validator |
 | `archivos_codigo/assets/cobalt/dictionary.py` | ✅ | Cobalt-specific data + `COBALT_CONFIG` instance |
 | `archivos_codigo/assets/cobalt/main.py` | ✅ | Cobalt orchestrator (cron entry point) |
-| `archivos_codigo/tests/synthetic_articles.py` | ✅ | Regression suite (9 articles + 4 clustering cases) |
+| `archivos_codigo/tests/synthetic_articles.py` | ✅ | Regression suite (65 casos sintéticos, ver Testing infrastructure) |
 | `archivos_codigo/legacy/main_scorer.py` | ✅ | Pre-extraction monolith, kept as behavioural reference |
 | `archivos_codigo/MAPA_SCORER.html` | ✅ | Visual map of the legacy monolith (open in browser) |
 | `scoring_rules.md` (repo root) | ✅ | Spec: category multipliers, SSC/SMC formulas |
@@ -77,9 +95,11 @@ cd archivos_codigo
 python3 -m assets.cobalt.main
 ```
 
-Cron schedule (UTC):
+Cron schedule (UTC), tal como está en la VM de producción (3 líneas, una por hora, usando el venv):
 ```
-0 0,8,16 * * * cd /home/usuario/cobalt-alert/archivos_codigo && /usr/bin/python3 -m assets.cobalt.main
+0 0 * * * cd /home/rubendominguezsoria285/cobalt-alert/archivos_codigo && /home/rubendominguezsoria285/cobalt-alert/venv/bin/python3 -m assets.cobalt.main
+0 8 * * * (igual)
+0 16 * * * (igual)
 ```
 
 The `cd` is required: `python -m assets.cobalt.main` resolves imports relative to the
@@ -154,13 +174,15 @@ Sources run **sequentially** (no threading — shared CPU constraint). El pipeli
 4. **NewsAPI.org** (3 queries cobalto-específicas): cobalto explícito + signals, geos cobalto-críticos + events, sustitutos batería. Free tier 100 req/día, delay de 24h, `full_text=True` para superar el truncado de 200ch.
 5. **GNews.io** (3 queries paralelas a NewsAPI): mismo diseño pero **real-time** (sin delay 24h). Free tier 100 req/día separados. Sleep 2s entre queries por rate limit per-segundo. `full_text=True` también.
 
+**Extracción del cuerpo (`full_text`)**: `extract_article_text()` en `framework/sources.py` se queda solo con el texto de los `<p>` (y descarta `aside`), con fallback a la página completa si los `<p>` suman menos de 300 caracteres. Nunca volver a `soup.get_text()` de la página entera: las listas de "relacionadas" contaminaban geo y keywords de todos los artículos.
+
 Tras la captura, **dedup cross-run estable** via `_normalize_url`: strip de query/fragment/trailing slash/www → mismo artículo desde GNews y NewsAPI colapsa al mismo URL canónico, no se scorea dos veces.
 
 Source credibility modifiers: 1.00 (Reuters/Bloomberg vía APIs, ACLED, GDACS, port portals) → 0.85 (regional African media, AU mining) → 0.65–0.75 (commodities financieras generales) → 0.50 (Google News aggregator). Three independent sources ≥0.80 on the same event apply a ×1.30 confirmation multiplier.
 
 **Observabilidad por hit**: cada artículo que produce hits genera una línea `HIT [...] source=X geo=Y n=N | keyword(category,signed_score), ...` en `~/cobalt-alert/logs/scorer.log`. Esencial para auditoría sin scripts forenses.
 
-**Gemini sigue desactivado en producción**: la lógica de Path A/B existe en `framework/llm_validator.py` pero requiere `pip install google-genai` en el venv. Activación pendiente — esperando volumen de hits ≥3/run consistente para validar utilidad (paso 5 del plan original).
+**Gemini sigue desactivado en producción**: la lógica de Path A/B existe en `framework/llm_validator.py` pero requiere `pip install google-genai` en el venv. Activación pendiente hasta que la tasa de falsos positivos del scoring baje de ~30%.
 
 ### Spec documents (not code)
 
@@ -183,7 +205,7 @@ When modifying scoring behavior:
 
 Two test modes available via env flags:
 
-- **`COBALT_TEST_MODE=1`** — bypasses RSS/API fetching and runs the synthetic test suite. Cubre actualmente: 10 artículos sintéticos (cada uno locking-in un bug histórico: A/B/C/D/...) + 4 casos de clustering temporal (F) + 4 casos de cooldown DEGRADED (SH) + 13 casos de NewsAPI (NA: helper, fail-safe, AssetConfig) + 5 casos de GNews (GN: idem) + 9 casos de URL normalization (UN). **Total 45 tests sintéticos.** Cuando alguien fixea un bug, debe añadir un caso aquí.
+- **`COBALT_TEST_MODE=1`** — bypasses RSS/API fetching and runs the synthetic test suite. Cubre actualmente: 10 artículos sintéticos (cada uno locking-in un bug histórico: A/B/C/D/...) + 4 casos de clustering temporal (F) + 4 casos de cooldown DEGRADED (SH) + 13 casos de NewsAPI (NA: helper, fail-safe, AssetConfig) + 5 casos de GNews (GN: idem) + 9 casos de URL normalization (UN) + 8 casos de word boundary en keywords (WB) + 7 casos de word boundary y colisiones en geo/ancla (GB) + 5 casos de extracción del cuerpo del artículo sin boilerplate (AE). **Total 65 tests sintéticos.** Cuando alguien fixea un bug, debe añadir un caso aquí.
 - **`COBALT_TEST_NO_GEMINI=1`** — skips real Gemini API calls (preserves free-tier daily quota during iteration). Combine with `COBALT_TEST_MODE=1` for offline regression testing.
 
 **Importante: `COBALT_TEST_MODE=1` NO escribe al log de producción.** Solo loguea a consola. El archivo `~/cobalt-alert/logs/scorer.log` queda intacto cuando se corren tests durante desarrollo. Esto evita contaminar el histórico del cron real con líneas de tests sintéticos.
@@ -205,6 +227,8 @@ COBALT_TEST_MODE=1 python3 -m assets.cobalt.main
 ### Key invariants
 
 - `requires_context: true` keywords only score if an anchor term (BLOQUE 0) appears within `context_window` words.
+- **Todo matching es por palabra/frase completa** (`\b` regex): keywords en `score_article`, términos geo en `detect_geo` y anclas en `has_anchor`. Nunca usar `in` / `.find()` de substring para esto.
+- **Un término geo nuevo debe ser inequívoco como palabra entera.** Siglas cortas y topónimos comunes colisionan (`beni` → "Beni Halba" en Sudán, `cfm` → caudal de aire). Antes de añadir uno, pensar en qué otros contextos aparece.
 - `DEM-SUBSTITUTE` terms (cobalt-free batteries, LFP, sodium-ion) carry **negative** weight and only affect SMC, not SSC.
 - `REG` and `GEO-SANCTION` events do **not** decay by age if there is no resolution notice.
 - Port portal failures (HTTP errors) must not be treated as disruption signals — these sites have inherently low uptime.
