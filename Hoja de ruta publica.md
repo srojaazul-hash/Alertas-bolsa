@@ -1,7 +1,7 @@
 # 🗺️ HOJA DE RUTA — Sistema multi-asset
 
 > Roadmap estratégico del proyecto. Versión pública (versionada en Git).
-> Última revisión: 2026-05-16
+> Última revisión: 2026-10-15
 
 ---
 
@@ -33,32 +33,22 @@ Sistema **multi-asset de alerta temprana sobre materias primas** con capa de ana
 
 ---
 
-## 📊 Estado del proyecto (2026-05-16)
+## 📊 Estado del proyecto (2026-10-15)
 
 ### ✅ Completado
-- Sistema cobalto end-to-end en GCP free tier (cron 3×/día)
-- Scoring multilingüe (EN/FR/PT/ES + Kiswahili), ~280 keywords
-- 11 zonas geográficas con pesos calibrados (GEO-01 DRC = 1.80, el más alto)
-- Validación contextual vía Gemini 2.5 Flash Lite (free tier)
-- 6 puntos auditados y resueltos sobre `score_article` / `aggregate_scores`:
-  - A: `find()` primera ocurrencia → todas las ocurrencias evaluadas
-  - B: filtro de falsos positivos global → por ocurrencia
-  - C: umbral antes de multiplicadores → doble umbral
-  - D: signo en negación de pesos negativos → invertir signo
-  - E: `DEM-DROP` dead code → eliminado
-  - F: bucket por día UTC → ventana deslizante 24h
-- 9 artículos sintéticos + 4 casos de clustering como tests de regresión permanente
-- Flag `COBALT_TEST_NO_GEMINI=1` para iterar sin gastar cuota
-- Git workflow PC ↔ GitHub ↔ VM
-- `.gitignore` protegiendo secretos en raíz del repo
+- **Fase 1** — framework extraído (`archivos_codigo/framework/` + `assets/cobalt/` + `tests/`), cron VM en el nuevo entry point
+- **Fase 1.5 (casi cerrada)** — pipeline de fuentes saneado: 26 RSS + 3 scraping + ACLED + NewsAPI + GNews, dedup cross-API por URL normalizada, observabilidad por hit
+- **Precisión del scoring (may–oct 2026)** — cuatro causas de falsos positivos eliminadas: substring en keywords, substring en geo/ancla, colisiones de términos geo (`beni`, `cfm`) y boilerplate de páginas en `full_text`
+- 65 tests sintéticos de regresión (cada fix con el suyo)
+- Gemini implementado pero **desactivado** en producción
 
 ### ❌ Pendiente (por orden de impacto)
-1. **Extracción del framework como librería reutilizable** ← más crítico
-2. Segundo asset (cobre, recomendado) implementado
-3. Analista LLM con output JSON estructurado
-4. Conexión a Alpaca paper trading
-5. Loop end-to-end completo
-6. Dashboard de métricas
+1. **Medir el ruido tras el fix de boilerplate** (cron 2-3 días + `hits_export`) ← siguiente paso
+2. Decidir `requires_context=True` en keywords genéricos (`coup d'etat`, `military takeover`, `armed conflict`, `mine collapse`, `flash flood`, `cyclone`, `strike`, `port strike`, `sanctions`, `trade embargo`)
+3. Contar una vez por artículo en la agregación + redefinir "fuentes independientes" (por evento, no por categoría)
+4. Rebajar el lenguaje "Por qué actuar ahora" del email mientras la tasa de FP sea alta
+5. Activar Gemini cuando la señal sea limpia
+6. Fase 2 (cobre) → Fase 3 (analista LLM) → Fase 4 (Alpaca) → Fase 5 (métricas)
 
 ---
 
@@ -111,7 +101,7 @@ archivos_codigo/
 
 ### FASE 1.5 — Saneamiento del pipeline de fuentes  *(estimado: 4-8h)*
 
-**Estado: 🔵 EN CURSO** (mayoría de tareas completadas 2026-05-17/18, falta solo observación de 2-3 días naturales del cron antes de cerrar). Ver Notas/insights al final.
+**Estado: 🔵 EN CURSO** (pipeline completo desde 2026-05-18; may–oct dedicado a precisión del scoring tras ver ~90% de falsos positivos en producción). Falta medir el ruido tras el último fix y decidir `requires_context`. Ver Notas/insights al final.
 
 **Objetivo**: tener al menos 3 fuentes cobalto-específicas activas que entreguen contenido relevante de forma consistente. Sin esto, Fase 2-5 construyen sobre datos vacíos.
 
@@ -138,14 +128,23 @@ archivos_codigo/
 - [x] **Observabilidad de hits**: log INFO por artículo con keyword/categoría/score/geo (commit `83e1466`)
 - [x] **URL normalization** para dedup cross-API: `_normalize_url` + 9 tests sintéticos (commit `da7512a`)
 - [x] **Fix logging de tests**: `COBALT_TEST_MODE=1` ya NO escribe al `scorer.log` de producción (commit `e3ac092`)
-- [ ] **Observación natural del cron durante 2-3 días** para validar: (a) si FP de `port strike` (visto en run 2026-05-18 16:00 UTC) se repite y justifica `requires_context=True`, (b) volumen real de hits/día sostenido, (c) si GNews trae artículos en algún tick cuando NewsAPI no
-- [ ] **Decisión sobre activar Gemini** en producción tras observación (volumen ≥3 hits/run consistente)
+- [x] **Observación del cron** (may–oct): hecha. Resultado: ~90% de los hits eran falsos positivos. Detalle de causas en Notas/insights
+- [x] **Fix word boundary en keywords** — `port strike` matcheaba dentro de "transport strike", `coup` en "couple", etc. (commit `854ceb2`, tests WB 8)
+- [x] **Fix word boundary en geo y ancla** — `beni` (DRC) matcheaba dentro de "benin" (commit `8a4131e`, tests GB 1-5)
+- [x] **Quitar términos geo que colisionan como palabra entera** — `beni` ("Beni Halba", Sudán) y `cfm` (caudal de aire) (commit `c663283`, tests GB 6-7)
+- [x] **Fix boilerplate en `full_text`** — se extraían barras laterales de "relacionadas"; africanews metía "DRC Ebola outbreak" en todas sus páginas → GEO-01 falso en casi todo. Ahora solo `<p>` (commit `29500d9`, tests AE 5)
+- [ ] **Medir el ruido tras el fix de boilerplate**: cron 2-3 días, sacar `hits_export.txt` y clasificar hits como en el audit del 2026-10-15
+- [ ] **Decidir `requires_context=True`** para keywords genéricos (`coup d'etat`, `military takeover`, `armed conflict`, `mine collapse`, `flash flood`, `cyclone`, `strike`, `port strike`, `sanctions`, `trade embargo`). Trade-off: elimina el ruido de Sahel/Tigray/Somalia pero puede matar señales reales (ej. Kabila liderando alianza armada si el artículo no menciona cobalto). Comprobar con artículos reales antes de cambiar
+- [ ] **Contar una vez por artículo** en `aggregate_scores` (hoy un artículo con 2 keywords suma como 2 señales) y **redefinir "fuentes independientes"** como fuentes sobre el mismo evento (hoy 6 artículos no relacionados con la misma categoría cuentan como confirmación cruzada)
+- [ ] **Rebajar el lenguaje del email** ("Por qué actuar ahora", ventana de entrada 48-72h) mientras la tasa de FP sea alta — sugiere una precisión que el sistema no tiene
+- [ ] **Decisión sobre activar Gemini** cuando la señal sea limpia (antes filtraría ruido que debe arreglarse en el scoring)
 - [ ] **Dedup cross-run con title similarity** (anotado para más adelante). La URL normalization cubre variaciones triviales pero NO "mismo contenido republicado en otro dominio" (Reuters→Yahoo Finance). Requiere extender schema de `processed_urls` para guardar titles. Esperar 1-2 semanas de datos para decidir si justifica el esfuerzo.
 - [ ] Decidir si cambiar de proveedor de VM (Hetzner/OVH) para sortear bloqueo IP de mining.com. Esperar datos.
 
 **Criterio de éxito**: 
 - ≥3 fuentes cobalto-específicas activas entregando ≥10 artículos cobalto-relevantes/semana en agregado
 - Hits/día reales ≥1 en promedio durante 7 días consecutivos
+- **Tasa de falsos positivos < 30%** en esos 7 días (añadido 2026-10-15: sin este criterio, "≥1 hit/día" se cumplía con puro ruido)
 - ≥80% del config en estado OK (no DEGRADED) durante 7 días consecutivos
 
 **Anti-patrón a evitar**: investigar fuentes durante semanas sin avanzar al siguiente paso. Si tras 8h de research no se han encontrado ≥3 fuentes nuevas viables, **bajar el estándar** (aceptar fuentes con cobertura cobalto incidental pero alto volumen, como Reuters business general) y avanzar — siempre se pueden refinar después con paper trading real (Fase 6).
@@ -360,7 +359,7 @@ Ciclo de mejora:
 - [x] `archivos_codigo/assets/cobalt/dictionary.py` con todos los keywords y geo
 - [x] `archivos_codigo/assets/cobalt/main.py` simplificado a orquestación
 - [x] Tests sintéticos cobalto siguen pasando 9/9 (+ 4 casos de clustering)
-- [ ] Cron en VM apunta al nuevo entry point
+- [x] Cron en VM apunta al nuevo entry point
 
 ### Fase 1.5 — Saneamiento de fuentes
 - [x] Limpieza de fuentes confirmadamente rotas (6 eliminadas, 3 renombradas)
@@ -373,11 +372,17 @@ Ciclo de mejora:
 - [x] **URL normalization** para dedup estable cross-API (`_normalize_url` strip query/fragment/www/slash + backwards-compat con state.json viejo)
 - [x] **Gap militar deployment** cubierto en GEO-CONFLICT: +20 keywords EN/FR/ES/PT + artículo sintético #10 bloquea regresión
 - [x] Fix logging: COBALT_TEST_MODE=1 ya NO contamina scorer.log de producción (solo consola en modo test)
-- [ ] Observación durante 2-3 días naturales del cron para validar: (a) si FP de "port strike" se repite y justifica `requires_context=True`, (b) volumen real de hits/día, (c) si GNews trae artículos cuando NewsAPI tiene delay
-- [ ] **Dedup robusto cross-run con title similarity** — la URL normalization no cubre el caso de "mismo contenido republicado en otro dominio". Anotado para implementar tras 1-2 semanas de datos
-- [ ] Triaje individual con curl de fuentes sospechosas si persisten en 0 entradas
-- [ ] Hits/día reales ≥1 en promedio durante 7 días consecutivos
-- [ ] Decisión sobre activar Gemini en producción (espera a volumen ≥3 hits/run consistente)
+- [x] Observación del cron may–oct: ~90% falsos positivos, causas diagnosticadas
+- [x] Word boundaries en keywords (`854ceb2`) y en geo/ancla (`8a4131e`)
+- [x] Quitar `beni`/`cfm` de términos geo (`c663283`)
+- [x] Extraer solo `<p>` en `full_text` para eliminar boilerplate (`29500d9`)
+- [ ] Medir ruido tras el fix de boilerplate (2-3 días de cron)
+- [ ] Decidir `requires_context=True` en keywords genéricos (con artículos reales)
+- [ ] Una señal por artículo en la agregación + "fuentes independientes" por evento
+- [ ] Rebajar lenguaje "Por qué actuar ahora" en el email
+- [ ] **Dedup robusto cross-run con title similarity** — la URL normalization no cubre "mismo contenido republicado en otro dominio"
+- [ ] Hits/día reales ≥1 en promedio durante 7 días consecutivos **con tasa de FP < 30%**
+- [ ] Decisión sobre activar Gemini en producción (cuando la señal sea limpia)
 
 ### Fase 2 — Cobre
 - [ ] `assets/copper/dictionary.py` con ~100 keywords
@@ -421,3 +426,5 @@ Ciclo de mejora:
 - **2026-05-17**: Fase 1 ejecutada. `main_scorer.py` (2256 líneas, monolito) extraído en `archivos_codigo/framework/` (genérico, ~1037 líneas) + `archivos_codigo/assets/cobalt/` (datos + orquestador, ~1328 líneas) + `archivos_codigo/tests/synthetic_articles.py` (~355 líneas). `AssetConfig` dataclass encapsula los parámetros del asset; cada función del framework lo recibe en lugar de leer globals. 9/9 artículos sintéticos + 4/4 clusters pasan con los valores numéricos exactos del monolito (signed_sum=+1.22 para Art 9, SSC=23.40 para F3, etc.). Entry point nuevo: desde `archivos_codigo/`, `python -m assets.cobalt.main`. La carpeta original `archivos codigo` renombrada a `archivos_codigo` (sin espacio) para que sea un identificador Python válido; todo el código nuevo consolidado dentro. `main_scorer.py` movido a `archivos_codigo/legacy/` como referencia. Falta sincronizar cron en VM.
 - **2026-05-17 (tarde)**: Auditoría del pipeline de fuentes en VM tras corte → 0 hits durante días. Hallazgo: el scoring no está roto, las fuentes sí. 13 de 25 fuentes confirmadamente rotas (mining.com bloqueada por AWS WAF a IPs de GCP, Google News RSS muerto sistémicamente desde 2024, varias mining specialty con feeds inválidos). Bug descubierto en `framework/state.py`: las fuentes DEGRADED nunca se reintentaban (saltadas indefinidamente). Cuatro commits: extracción Fase 1, reorg dentro de `archivos_codigo/`, fix DEGRADED-cooldown (con 4 tests sintéticos SH-1 a SH-4), cleanup de config (6 fuentes eliminadas, 3 renombradas porque "reuters_*" nunca fueron Reuters). Fase 1.5 añadida al roadmap: investigar y añadir ≥3 fuentes cobalto-específicas que funcionen en 2026.
 - **2026-05-17/18 (sesión larga)**: Saneamiento completo de Fase 1.5. **+9 fuentes RSS** confirmadas tras curl-test desde IP de GCP (Cobalt Institute, Australian Mining, CNBC Commodities, Resource World, NS Energy, OilPrice, Investing.com, etc.) — 2 descartadas tras forensic audit con feedparser (cleantechnica publica <1/20 días, radio_okapi devuelve archivo histórico de 27 días). **Integración NewsAPI.org** como fetcher genérico (3 queries Boolean cobalto-específicas, free tier 100/día, delay 24h, full_text=True para superar truncado de 200ch). **Integración GNews.io** como segundo API en paralelo (real-time, 100 req/día separados, sleep 2s entre queries por rate limit per-segundo del free tier). **Observabilidad por hit** añadida: cada artículo que dispara genera log INFO con keyword/categoría/score/geo. **URL normalization** para dedup cross-API: `_normalize_url` strip query/fragment/www/slash, evita inflación de 50% en `aggregate_scores` cuando GNews día 1 + NewsAPI día 2 traen el mismo artículo con URLs ligeramente distintas. **Gap militar deployment** cubierto en GEO-CONFLICT (+20 keywords EN/FR/ES/PT, artículo sintético #10). **Fix logging**: COBALT_TEST_MODE=1 ahora solo escribe a consola, no contamina scorer.log de producción. Total **45 tests sintéticos** verdes. Primer hit real detectado en cron natural (artículo de protestas Kenia que disparó `port strike` LOG-PORT por incidental geo+keyword sin anchor — score 11.34, VERDE, no cruzó umbral — documentado como ejemplo del trade-off `requires_context=False`). **Decisiones rechazadas con explicación**: no relajar umbrales por motivación, no scraping directo de Google (ToS + bloqueo IP), no activar Gemini sin tráfico, no title similarity cross-run hasta tener datos reales. Estado: cron entrega 1-3 hits/run en condiciones favorables, observable end-to-end, listo para evaluación de 2-3 días naturales antes de pasar a Gemini activo.
+- **2026-05-20 → 2026-06-02**: Con la observabilidad por hit activa se vio que el cron producía **~93% de falsos positivos** (15 hits, 14 FP en un run; SSC=24.48 sobre puro ruido). Causa 1: `score_article` buscaba keywords como substring → "port strike" dentro de "transport strike" (commit `854ceb2`). Causa 2: el mismo defecto en `detect_geo`/`has_anchor` → "beni" (DRC) dentro de "benin" etiquetaba GEO-01 (commit `8a4131e`).
+- **2026-10-15**: Revisión de 4 meses sin trabajo activo (cron siguió corriendo). **6 emails de alerta** (jul–sep, 4 en NARANJA): de 36 eventos listados solo 3 eran cobalto-relevantes (RDC limita exportaciones de minerales; veto a exportación de cobre en RDC; Glencore $500M en Project Vault, mal etiquetado como `export ban`). **Ninguna alerta estaba justificada por señal real.** `score_history` (90 runs sep–oct): 40% con 0 hits, 18 runs en AMARILLO/NARANJA. Hits de la semana 8–15 oct: 28 de 32 FP. **Causa nueva confirmada en la VM**: `full_text` extraía la página entera; africanews incluye en todas sus páginas una lista de vídeos relacionados ("NEWS 01:12 DRC Ebola outbreak passes 9,000 cases"), así que Ceuta, Bruselas, Somalia o Libia heredaban GEO-01 (peso 1.80) y keywords ajenos (`flash flood` del vídeo de Nepal). Fix: extraer solo `<p>` (commit `29500d9`); la etiqueta `<article>` de africanews está vacía, así que no servía. También se quitaron `beni` y `cfm` de los términos geo (commit `c663283`). **Causa pendiente**: keywords genéricos con `requires_context=False` disparando en artículos reales pero no cobalto (golpes en el Sahel, guerra en Tigray). **Problemas de agregación detectados**: un artículo con 2 keywords cuenta como 2 señales; "fuentes independientes" se cuenta por categoría, no por evento (6 artículos no relacionados = "confirmación cruzada"). **Lección**: el criterio de éxito "≥1 hit/día" se cumplía con ruido → añadido "tasa de FP < 30%". El email sugiere ventanas de entrada con tickers concretos: no apto para decisiones hasta bajar el ruido. 65 tests sintéticos verdes.
