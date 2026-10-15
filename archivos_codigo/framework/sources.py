@@ -55,6 +55,37 @@ def fetch_url(session: requests.Session, url: str, timeout: int = 15) -> Optiona
         return None
 
 
+# Mínimo de caracteres en <p> para fiarse de la extracción por párrafos.
+# Por debajo, la página probablemente no usa <p> para el cuerpo y caemos
+# al texto completo de la página.
+_MIN_PARAGRAPH_CHARS = 300
+
+
+def extract_article_text(html: str, max_chars: int = 8000) -> str:
+    """
+    Extrae el cuerpo de un artículo a partir de su HTML, solo de los <p>.
+
+    Por qué no `soup.get_text()` de la página entera: las páginas incluyen
+    listas de "relacionadas"/"más vistas" que se colaban como si fueran
+    contenido del artículo. Caso confirmado (2026-10-15): africanews mete una
+    lista de vídeos ("NEWS 01:12 DRC Ebola outbreak passes 9,000 cases...")
+    en todas sus páginas → todo artículo heredaba "DRC" (GEO-01, peso 1.80) y
+    keywords ajenos como "flash flood". Medido: la lista desaparece al extraer
+    solo <p> y el cuerpo se conserva (rfi/allafrica ~90%, oilprice pierde solo
+    menús de precios).
+
+    Fallback a la página completa si los <p> suman menos de
+    `_MIN_PARAGRAPH_CHARS` (sitios que no maquetan el cuerpo con <p>).
+    """
+    soup = BeautifulSoup(html, "lxml")
+    for tag in soup(["script", "style", "nav", "footer", "header", "aside"]):
+        tag.decompose()
+    paragraphs = " ".join(p.get_text(" ", strip=True) for p in soup.find_all("p"))
+    if len(paragraphs) >= _MIN_PARAGRAPH_CHARS:
+        return paragraphs[:max_chars]
+    return soup.get_text(separator=" ", strip=True)[:max_chars]
+
+
 # ---------------------------------------------------------------------------
 # RSS
 # ---------------------------------------------------------------------------
@@ -101,10 +132,7 @@ def fetch_rss(source: dict, state: dict, session: requests.Session) -> list:
                 time.sleep(1)
                 full = fetch_url(session, url, timeout=source.get("timeout", 15))
                 if full:
-                    soup = BeautifulSoup(full, "lxml")
-                    for tag in soup(["script", "style", "nav", "footer", "header"]):
-                        tag.decompose()
-                    body = soup.get_text(separator=" ", strip=True)[:8000]
+                    body = extract_article_text(full)
 
             # Filtro de edad: descartar artículos con más de 48h
             age_hours_dl = (datetime.now(timezone.utc) - pub_date).total_seconds() / 3600
@@ -362,10 +390,7 @@ def fetch_news_api(
                     full_html = fetch_url(session, url, timeout=20)
                     if full_html:
                         try:
-                            soup = BeautifulSoup(full_html, "lxml")
-                            for tag in soup(["script", "style", "nav", "footer", "header"]):
-                                tag.decompose()
-                            full_body = soup.get_text(separator=" ", strip=True)[:8000]
+                            full_body = extract_article_text(full_html)
                             if full_body and len(full_body) > len(body):
                                 body = full_body
                         except Exception as exc:
@@ -515,10 +540,7 @@ def fetch_gnews(
                     full_html = fetch_url(session, url, timeout=20)
                     if full_html:
                         try:
-                            soup = BeautifulSoup(full_html, "lxml")
-                            for tag in soup(["script", "style", "nav", "footer", "header"]):
-                                tag.decompose()
-                            full_body = soup.get_text(separator=" ", strip=True)[:8000]
+                            full_body = extract_article_text(full_html)
                             if full_body and len(full_body) > len(body):
                                 body = full_body
                         except Exception as exc:

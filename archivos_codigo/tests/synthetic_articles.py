@@ -746,6 +746,65 @@ def _run_geo_anchor_boundary_tests(cfg: AssetConfig) -> None:
 
 
 # ---------------------------------------------------------------------------
+# Tests de extracción de cuerpo de artículo (AE)
+# ---------------------------------------------------------------------------
+
+def _run_article_extraction_tests(cfg: AssetConfig) -> None:
+    """
+    Regresión del boilerplate de africanews (2026-10-15): la lista de vídeos
+    relacionados ("NEWS 01:12 DRC Ebola outbreak...") se extraía junto al
+    artículo y hacía que cualquier noticia heredase GEO-01 y keywords ajenos
+    ("flash flood"). extract_article_text debe quedarse solo con los <p>.
+    """
+    from framework.scoring import detect_geo, normalize
+    from framework.sources import extract_article_text
+
+    log.info("--- Tests AE: extracción del cuerpo del artículo ---")
+
+    body_p = ("Spain marked its National Day with a military parade in Madrid. "
+              "King Felipe attended the ceremony alongside government officials. ") * 4
+    html = (
+        "<html><head><title>x</title></head><body>"
+        "<header>Menu Home World</header>"
+        f"<article></article><div class='content'><p>{body_p}</p></div>"
+        "<div class='related-videos'>"
+        "02:18 Kenyans in border town afraid of Ebola risk "
+        "NEWS 01:12 DRC Ebola outbreak passes 9,000 cases "
+        "NEWS 00:58 Landslide triggers Budhi Gandaki flash flood"
+        "</div>"
+        "<aside>Most read: Congo cobalt mine attack in Kolwezi</aside>"
+        "</body></html>"
+    )
+    text = extract_article_text(html)
+
+    # Caso 1: la lista de vídeos relacionados no entra en el cuerpo
+    assert "NEWS 01:12" not in text and "flash flood" not in text, \
+        "AE Caso 1 falló: la lista de vídeos relacionados se coló en el cuerpo"
+    log.info("AE Caso 1 (lista de vídeos excluida): ✓")
+
+    # Caso 2: el contenido de <aside> tampoco entra
+    assert "Kolwezi" not in text, "AE Caso 2 falló: el <aside> se coló en el cuerpo"
+    log.info("AE Caso 2 (<aside> excluido): ✓")
+
+    # Caso 3: sin el boilerplate, el artículo de España ya NO activa GEO-01
+    geos = detect_geo(normalize(text), cfg.geographic_terms)
+    assert "GEO-01" not in geos, f"AE Caso 3 falló: artículo de España sigue en GEO-01 → {geos}"
+    log.info("AE Caso 3 (artículo España sin GEO-01): geos=%s ✓", geos)
+
+    # Caso 4: el cuerpo real del artículo se conserva
+    assert "National Day" in text, "AE Caso 4 falló: se perdió el cuerpo del artículo"
+    log.info("AE Caso 4 (cuerpo conservado): ✓")
+
+    # Caso 5: fallback — página sin <p> suficientes devuelve el texto completo
+    html_sin_p = "<html><body><div>Cobalt exports from the DRC were suspended today.</div></body></html>"
+    text2 = extract_article_text(html_sin_p)
+    assert "Cobalt exports" in text2, "AE Caso 5 falló: el fallback sin <p> perdió el texto"
+    log.info("AE Caso 5 (fallback sin <p>): ✓")
+
+    log.info("--- FIN tests AE (5/5) ---")
+
+
+# ---------------------------------------------------------------------------
 # Suite completa
 # ---------------------------------------------------------------------------
 
@@ -810,6 +869,9 @@ def run_gemini_test(cfg: AssetConfig, gemini_client=None) -> None:
 
     # --- 8. Tests de word boundary en detect_geo / has_anchor ---
     _run_geo_anchor_boundary_tests(cfg)
+
+    # --- 9. Tests de extracción del cuerpo del artículo (boilerplate) ---
+    _run_article_extraction_tests(cfg)
 
     log.info("=== FIN TEST ===")
 
